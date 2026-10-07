@@ -71,7 +71,7 @@ If a child works with **Instructor A** and **Instructor B**:
 
 ### Invitation & Association Workflow
 
-Instructors share a **reusable link or code** (similar to Google Classroom behavior).
+Instructors share a **reusable link or code**.
 
 | Path | Flow |
 |------|------|

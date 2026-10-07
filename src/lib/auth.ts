@@ -69,19 +69,24 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (error) throw error
 }
 
+export type SignUpResult = {
+  /** True when Supabase requires email confirmation before a session exists. */
+  needsEmailConfirmation: boolean
+}
+
 export async function signUp(
   fullName: string,
   email: string,
   password: string,
   role: UserRole = 'parent',
-): Promise<void> {
+): Promise<SignUpResult> {
   const supabase = getSupabaseClient()
   const { data, error } = await supabase.auth.signUp({
     email: email.trim(),
     password,
     options: {
       data: {
-        full_name: fullName,
+        full_name: fullName.trim(),
         role,
       },
     },
@@ -95,6 +100,8 @@ export async function signUp(
       throw new Error(formatAppError(err))
     }
   }
+
+  return { needsEmailConfirmation: !data.session }
 }
 
 export async function signOut(): Promise<void> {

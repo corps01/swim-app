@@ -10,7 +10,7 @@ export async function fetchProfile(userId: string) {
     .eq('id', userId)
     .maybeSingle()
 
-  if (error) throw error
+  if (error) throw new Error(formatAppError(error))
   return data
 }
 

@@ -30,7 +30,12 @@ type AuthContextValue = {
   signedIn: boolean
   isInstructor: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (fullName: string, email: string, password: string, role: UserRole) => Promise<void>
+  signUp: (
+    fullName: string,
+    email: string,
+    password: string,
+    role: UserRole,
+  ) => Promise<{ needsEmailConfirmation: boolean }>
   signOut: () => Promise<void>
   refresh: () => Promise<void>
   bypassAuth: (role: UserRole) => void
@@ -108,8 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     bypassUser.current = null
     setError(null)
-    await signInRequest(email, password)
     try {
+      await signInRequest(email, password)
       const nextUser = await assertSignedInUser()
       setUser(nextUser)
       setError(null)
@@ -117,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const message = formatAppError(err)
       setError(message)
       setUser(null)
-      throw err
+      throw new Error(message)
     }
   }, [])
 
@@ -125,16 +130,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (fullName: string, email: string, password: string, role: UserRole) => {
       bypassUser.current = null
       setError(null)
-      await signUpRequest(fullName, email, password, role)
       try {
+        const result = await signUpRequest(fullName, email, password, role)
+        if (result.needsEmailConfirmation) {
+          setUser(null)
+          setError(null)
+          return result
+        }
         const nextUser = await assertSignedInUser()
         setUser(nextUser)
         setError(null)
+        return result
       } catch (err) {
         const message = formatAppError(err)
         setError(message)
         setUser(null)
-        throw err
+        throw new Error(message)
       }
     },
     [],

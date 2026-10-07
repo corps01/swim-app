@@ -5,6 +5,12 @@ type SupabaseLikeError = {
   code?: string
 }
 
+export function throwIfSupabaseError(error: unknown): void {
+  if (error) {
+    throw new Error(formatAppError(error))
+  }
+}
+
 export function formatAppError(err: unknown): string {
   if (typeof err === 'string' && err.trim()) return err.trim()
 
@@ -22,7 +28,7 @@ export function formatAppError(err: unknown): string {
     }
   }
 
-  return 'Something went wrong. Check the browser console for details.'
+  return 'Something went wrong. Please try again.'
 }
 
 function enrichMessage(message: string, err: SupabaseLikeError): string {

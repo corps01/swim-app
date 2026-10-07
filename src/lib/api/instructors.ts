@@ -1,4 +1,7 @@
+import { formatAppError } from '../errors'
 import { getSupabaseClient } from '../supabase'
+
+export const PLACEHOLDER_CLASS_LABEL = 'Swim class'
 
 export interface InstructorOption {
   id: string
@@ -30,13 +33,13 @@ export async function lookupInstructorByCode(rawCode: string): Promise<Instructo
     .eq('role', 'instructor')
     .maybeSingle()
 
-  if (error) throw error
+  if (error) throw new Error(formatAppError(error))
   if (!data) return null
 
   return {
     id: data.id,
     code,
     name: data.full_name,
-    classLabel: 'Instructor roster',
+    classLabel: PLACEHOLDER_CLASS_LABEL,
   }
 }

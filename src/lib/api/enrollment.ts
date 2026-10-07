@@ -1,65 +1,134 @@
-import type { EnrollChildInput, EnrollChildResult } from '../../types/enrollment'
-import { lookupInstructorByCode } from './instructors'
+import type { ChildEnrollmentDraft, EnrollChildInput, EnrollChildResult } from '../../types/enrollment'
+import { formatAppError } from '../errors'
+import { lookupInstructorByCode, PLACEHOLDER_CLASS_LABEL, type InstructorOption } from './instructors'
+import { assertParentEnrollmentSession } from './sessionGuards'
 import { getSupabaseClient } from '../supabase'
 
-function validateChildInput(child: EnrollChildInput['child']) {
+const INVALID_INVITE_MESSAGE = 'Invalid invite code'
+
+function validateNewChild(child: ChildEnrollmentDraft) {
   if (!child.firstName.trim() || !child.lastName.trim() || !child.dateOfBirth) {
     throw new Error('Child name and date of birth are required.')
   }
 }
 
-async function resolveInstructorId(code: string): Promise<string> {
-  const instructor = await lookupInstructorByCode(code)
-  if (!instructor) {
-    throw new Error(
-      'Instructor not found. Use the invite ID (UUID) your instructor shared with you.',
-    )
+function resolveChildTarget(input: EnrollChildInput): 'existing' | 'new' {
+  const hasChildId = Boolean(input.childId?.trim())
+  const hasNewChild = Boolean(input.child)
+
+  if (hasChildId && hasNewChild) {
+    throw new Error('Choose either an existing swimmer or enter details for a new one.')
   }
-  return instructor.id
+  if (!hasChildId && !hasNewChild) {
+    throw new Error('Select an existing swimmer or add a new one.')
+  }
+  return hasChildId ? 'existing' : 'new'
 }
 
-/**
- * Creates a child row and links them to the signed-in parent and instructor.
- */
-export async function enrollChild(input: EnrollChildInput): Promise<EnrollChildResult> {
-  validateChildInput(input.child)
+/** Resolves an instructor from an invite code (instructor profile UUID). */
+export async function resolveInstructorInviteCode(code: string): Promise<InstructorOption> {
+  const instructor = await lookupInstructorByCode(code)
+  if (!instructor) {
+    throw new Error(INVALID_INVITE_MESSAGE)
+  }
+  return instructor
+}
 
-  const instructorId = await resolveInstructorId(input.instructorCode)
+async function verifyParentOwnsChild(parentUserId: string, childId: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('parent_child_relationships')
+    .select('child_id')
+    .eq('parent_id', parentUserId)
+    .eq('child_id', childId)
+    .maybeSingle()
+
+  if (error) throw new Error(formatAppError(error))
+  if (!data) {
+    throw new Error('This swimmer is not linked to your account.')
+  }
+}
+
+async function createChildForParent(child: ChildEnrollmentDraft): Promise<string> {
+  validateNewChild(child)
   const supabase = getSupabaseClient()
 
-  const { data: childRow, error: childError } = await supabase
-    .from('children')
-    .insert({
-      first_name: input.child.firstName.trim(),
-      last_name: input.child.lastName.trim(),
-      date_of_birth: input.child.dateOfBirth,
-      notes: input.child.notes.trim() || null,
-    })
-    .select('id')
-    .single()
-
-  if (childError) throw childError
-
-  const { error: parentLinkError } = await supabase.from('parent_child_relationships').insert({
-    parent_id: input.parentUserId,
-    child_id: childRow.id,
-    relationship: 'parent',
+  const { data: childId, error: childError } = await supabase.rpc('create_child_for_parent', {
+    p_first_name: child.firstName.trim(),
+    p_last_name: child.lastName.trim(),
+    p_date_of_birth: child.dateOfBirth,
+    p_notes: child.notes.trim() || null,
   })
 
-  if (parentLinkError) throw parentLinkError
+  if (childError) {
+    throw new Error(formatAppError(childError))
+  }
+
+  if (typeof childId !== 'string' || !childId) {
+    throw new Error('Could not create swimmer. Please try again.')
+  }
+
+  return childId
+}
+
+async function linkChildToInstructor(childId: string, instructorId: string): Promise<void> {
+  const supabase = getSupabaseClient()
+
+  const { data: existing, error: existingError } = await supabase
+    .from('child_instructor_relationships')
+    .select('id, status')
+    .eq('child_id', childId)
+    .eq('instructor_id', instructorId)
+    .maybeSingle()
+
+  if (existingError) throw new Error(formatAppError(existingError))
+
+  if (existing) {
+    if (existing.status === 'active') {
+      throw new Error('This swimmer is already enrolled in this class.')
+    }
+    const { error: updateError } = await supabase
+      .from('child_instructor_relationships')
+      .update({ status: 'active' })
+      .eq('id', existing.id)
+
+    if (updateError) throw new Error(formatAppError(updateError))
+    return
+  }
 
   const { error: instructorLinkError } = await supabase
     .from('child_instructor_relationships')
     .insert({
-      child_id: childRow.id,
+      child_id: childId,
       instructor_id: instructorId,
-      status: 'pending',
+      status: 'active',
     })
 
-  if (instructorLinkError) throw instructorLinkError
+  if (instructorLinkError) throw new Error(formatAppError(instructorLinkError))
+}
+
+/** Enrolls a parent's swimmer in an instructor's class. */
+export async function enrollChildInClass(input: EnrollChildInput): Promise<EnrollChildResult> {
+  await assertParentEnrollmentSession(input.parentUserId)
+
+  const instructor = await resolveInstructorInviteCode(input.instructorCode)
+  const target = resolveChildTarget(input)
+
+  const childId =
+    target === 'existing'
+      ? input.childId!.trim()
+      : await createChildForParent(input.child!)
+
+  if (target === 'existing') {
+    await verifyParentOwnsChild(input.parentUserId, childId)
+  }
+
+  await linkChildToInstructor(childId, instructor.id)
 
   return {
-    childId: childRow.id,
-    instructorId,
+    childId,
+    instructorId: instructor.id,
+    instructorName: instructor.name,
+    classLabel: instructor.classLabel || PLACEHOLDER_CLASS_LABEL,
   }
 }

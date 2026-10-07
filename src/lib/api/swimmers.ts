@@ -1,4 +1,5 @@
 import type { SwimmerRosterEntry } from '../swimmers'
+import { throwIfSupabaseError } from '../errors'
 import { getSupabaseClient } from '../supabase'
 
 export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRosterEntry[]> {
@@ -9,7 +10,7 @@ export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRost
     .select('child_id')
     .eq('parent_id', parentId)
 
-  if (parentError) throw parentError
+  throwIfSupabaseError(parentError)
   if (!parentLinks?.length) return []
 
   const childIds = parentLinks.map((row) => row.child_id)
@@ -19,14 +20,14 @@ export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRost
     .select('id, first_name, last_name, date_of_birth, notes')
     .in('id', childIds)
 
-  if (childrenError) throw childrenError
+  throwIfSupabaseError(childrenError)
 
   const { data: instructorLinks, error: instructorError } = await supabase
     .from('child_instructor_relationships')
     .select('child_id, status, instructor_id')
     .in('child_id', childIds)
 
-  if (instructorError) throw instructorError
+  throwIfSupabaseError(instructorError)
 
   const instructorIds = [
     ...new Set((instructorLinks ?? []).map((row) => row.instructor_id)),
@@ -39,7 +40,7 @@ export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRost
       .select('id, full_name')
       .in('id', instructorIds)
 
-    if (profilesError) throw profilesError
+    throwIfSupabaseError(profilesError)
     for (const instructor of instructors ?? []) {
       instructorNames.set(instructor.id, instructor.full_name)
     }

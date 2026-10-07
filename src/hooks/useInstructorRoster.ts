@@ -1,37 +1,36 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchParentSwimmers } from '../lib/api/swimmers'
+import { fetchInstructorRoster, type InstructorRosterEntry } from '../lib/api/instructorRoster'
 import { formatAppError } from '../lib/errors'
-import type { SwimmerRosterEntry } from '../lib/swimmers'
 
-export function useParentSwimmers(parentId: string | undefined) {
-  const [swimmers, setSwimmers] = useState<SwimmerRosterEntry[]>([])
+export function useInstructorRoster(instructorId: string | undefined) {
+  const [roster, setRoster] = useState<InstructorRosterEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!parentId) {
-      setSwimmers([])
+    if (!instructorId) {
+      setRoster([])
       setLoading(false)
       return
     }
 
     setLoading(true)
     try {
-      const rows = await fetchParentSwimmers(parentId)
-      setSwimmers(rows)
+      const rows = await fetchInstructorRoster(instructorId)
+      setRoster(rows)
       setError(null)
     } catch (err) {
       const message = formatAppError(err)
       setError(message)
-      setSwimmers([])
+      setRoster([])
     } finally {
       setLoading(false)
     }
-  }, [parentId])
+  }, [instructorId])
 
   useEffect(() => {
     void refresh()
   }, [refresh])
 
-  return { swimmers, loading, error, refresh }
+  return { roster, loading, error, refresh }
 }

@@ -10,9 +10,19 @@ interface ChildDetailsStepProps {
   value: ChildEnrollmentDraft
   onChange: (patch: Partial<ChildEnrollmentDraft>) => void
   onContinue: () => void
+  stepNumber?: number
+  stepTotal?: number
+  showStepHeader?: boolean
 }
 
-export function ChildDetailsStep({ value, onChange, onContinue }: ChildDetailsStepProps) {
+export function ChildDetailsStep({
+  value,
+  onChange,
+  onContinue,
+  stepNumber = 1,
+  stepTotal = 3,
+  showStepHeader = true,
+}: ChildDetailsStepProps) {
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     onContinue()
@@ -20,12 +30,14 @@ export function ChildDetailsStep({ value, onChange, onContinue }: ChildDetailsSt
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <StepHeader
-        step={1}
-        total={3}
-        title="Swimmer profile"
-        description="Tell us about the child you are enrolling."
-      />
+      {showStepHeader ? (
+        <StepHeader
+          step={stepNumber}
+          total={stepTotal}
+          title="Swimmer profile"
+          description="Tell us about the child you are enrolling."
+        />
+      ) : null}
 
       <Card>
         <Input

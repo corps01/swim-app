@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { enrollChild } from '../lib/api/enrollment'
+import { enrollChildInClass } from '../lib/api/enrollment'
+import { formatAppError } from '../lib/errors'
 import type { EnrollChildInput, EnrollChildResult } from '../types/enrollment'
 
 export function useEnrollment() {
@@ -11,11 +12,9 @@ export function useEnrollment() {
       setSubmitting(true)
       setError(null)
       try {
-        const result = await enrollChild(input)
-        return result
+        return await enrollChildInClass(input)
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Enrollment failed.'
-        setError(message)
+        setError(formatAppError(err))
         return null
       } finally {
         setSubmitting(false)

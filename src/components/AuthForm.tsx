@@ -24,6 +24,7 @@ export function AuthForm() {
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<UserRole>('parent')
   const [error, setError] = useState<string | null>(null)
+  const [confirmationSent, setConfirmationSent] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const isParent = role === 'parent'
@@ -32,11 +33,16 @@ export function AuthForm() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+    setConfirmationSent(false)
     setLoading(true)
 
     try {
       if (signingUp) {
-        await signUp(fullName, email, password, role)
+        const result = await signUp(fullName, email, password, role)
+        if (result.needsEmailConfirmation) {
+          setConfirmationSent(true)
+          setMode('sign-in')
+        }
       } else {
         await signIn(email, password)
       }
@@ -173,6 +179,16 @@ export function AuthForm() {
             leadingIcon={<MaterialIcon name="lock" size={20} />}
             required
           />
+
+          {confirmationSent ? (
+            <p
+              role="status"
+              className="rounded bg-primary-container px-3 py-2 text-body-sm text-on-primary-container"
+            >
+              Check your email to confirm your account, then sign in as{' '}
+              {isParent ? 'a parent' : 'an instructor'}.
+            </p>
+          ) : null}
 
           {error ? (
             <p
