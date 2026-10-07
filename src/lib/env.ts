@@ -5,14 +5,14 @@ function read(key: keyof ImportMetaEnv): string {
 }
 
 export const env = {
-  supabaseUrl: read('VITE_SUPABASE_URL'),
-  supabaseAnonKey: read('VITE_SUPABASE_ANON_KEY'),
+  supabaseUrl: read('SUPABASE_URL'),
+  supabaseAnonKey: read('SUPABASE_ANON_KEY'),
 } as const
 
 export function assertSupabaseEnv(): void {
   if (!isSupabaseConfigured()) {
     throw new Error(
-      'Missing Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.',
+      'Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_ANON_KEY in .env.',
     )
   }
 }

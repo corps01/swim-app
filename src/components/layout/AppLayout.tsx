@@ -5,6 +5,7 @@ export interface AppLayoutProps {
   children: ReactNode
   title?: string
   subtitle?: string
+  onBack?: () => void
   onSignOut?: () => void
   variant?: 'auth' | 'flow'
 }
@@ -13,6 +14,7 @@ export function AppLayout({
   children,
   title = 'SplashPass',
   subtitle,
+  onBack,
   onSignOut,
   variant = 'flow',
 }: AppLayoutProps) {
@@ -38,7 +40,7 @@ export function AppLayout({
 
   return (
     <div className="flex min-h-svh flex-col bg-surface text-on-surface">
-      <Navbar title={title} subtitle={subtitle} onSignOut={onSignOut} />
+      <Navbar title={title} subtitle={subtitle} onBack={onBack} onSignOut={onSignOut} />
       <main className="flex-1 px-margin-screen pb-safe">{content}</main>
     </div>
   )

@@ -36,15 +36,23 @@ export function AuthForm() {
     setConfirmationSent(false)
     setLoading(true)
 
+    const emailClean = email.replace(/\s/g, '').trim()
+    const passwordClean = password.trim()
+    const nameClean = fullName.trim().replace(/\s+/g, ' ')
+
+    setEmail(emailClean)
+    setPassword(passwordClean)
+    if (signingUp) setFullName(nameClean)
+
     try {
       if (signingUp) {
-        const result = await signUp(fullName, email, password, role)
+        const result = await signUp(nameClean, emailClean, passwordClean, role)
         if (result.needsEmailConfirmation) {
           setConfirmationSent(true)
           setMode('sign-in')
         }
       } else {
-        await signIn(email, password)
+        await signIn(emailClean, passwordClean)
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Authentication failed.'
@@ -162,7 +170,7 @@ export function AuthForm() {
             autoComplete="email"
             clearable
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => setEmail(event.target.value.replace(/\s/g, ''))}
             leadingIcon={<MaterialIcon name="alternate_email" size={20} />}
             required
           />

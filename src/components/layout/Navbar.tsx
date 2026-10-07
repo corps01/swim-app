@@ -1,18 +1,31 @@
+import { ChevronLeft } from 'lucide-react'
 import { Button } from '../ui'
 import { BrandMark } from './BrandMark'
 
 export interface NavbarProps {
   title: string
   subtitle?: string
+  onBack?: () => void
   onSignOut?: () => void
 }
 
-export function Navbar({ title, subtitle, onSignOut }: NavbarProps) {
+export function Navbar({ title, subtitle, onBack, onSignOut }: NavbarProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-outline-variant/40 bg-surface/90 px-margin-screen pt-safe backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-md items-center justify-between gap-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <BrandMark size="sm" />
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Go back"
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface transition-colors active:scale-[0.97] hover:bg-surface-container"
+            >
+              <ChevronLeft className="size-5" strokeWidth={2.5} aria-hidden />
+            </button>
+          ) : (
+            <BrandMark size="sm" />
+          )}
           <div className="min-w-0">
             <p className="text-label-sm text-primary uppercase">SplashPass</p>
             <h1 className="text-headline-sm text-on-surface">{title}</h1>

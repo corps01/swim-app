@@ -30,7 +30,7 @@ on conflict (id) do nothing;
 
 | File | Purpose |
 |------|---------|
-| `src/lib/env.ts` | Validates `VITE_SUPABASE_*` env vars |
+| `src/lib/env.ts` | Validates `SUPABASE_*` env vars |
 | `src/lib/supabase.ts` | Supabase client singleton |
 | `src/hooks/useAuth.ts` | Session + sign-in/up/out against Supabase Auth |
 | `src/hooks/useParentSwimmers.ts` | Loads enrolled children for the signed-in parent |

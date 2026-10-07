@@ -15,6 +15,13 @@ export interface SwimmerRosterEntry {
   signedAtLabel?: string
 }
 
+export function formatDateOfBirth(isoDate: string): string {
+  if (!isoDate) return ''
+  const dob = new Date(`${isoDate}T12:00:00`)
+  if (Number.isNaN(dob.getTime())) return isoDate
+  return dob.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export function ageFromDateOfBirth(isoDate: string): number | null {
   if (!isoDate) return null
   const dob = new Date(`${isoDate}T12:00:00`)

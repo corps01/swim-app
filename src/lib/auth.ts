@@ -64,7 +64,7 @@ export async function signIn(email: string, password: string): Promise<void> {
   const supabase = getSupabaseClient()
   const { error } = await supabase.auth.signInWithPassword({
     email: email.trim(),
-    password,
+    password: password.trim(),
   })
   if (error) throw error
 }
@@ -81,12 +81,16 @@ export async function signUp(
   role: UserRole = 'parent',
 ): Promise<SignUpResult> {
   const supabase = getSupabaseClient()
+  const trimmedEmail = email.trim()
+  const trimmedPassword = password.trim()
+  const trimmedName = fullName.trim()
+
   const { data, error } = await supabase.auth.signUp({
-    email: email.trim(),
-    password,
+    email: trimmedEmail,
+    password: trimmedPassword,
     options: {
       data: {
-        full_name: fullName.trim(),
+        full_name: trimmedName,
         role,
       },
     },
@@ -95,7 +99,7 @@ export async function signUp(
 
   if (data.session && data.user) {
     try {
-      await upsertProfile(data.user.id, fullName, role)
+      await upsertProfile(data.user.id, trimmedName, role)
     } catch (err) {
       throw new Error(formatAppError(err))
     }
