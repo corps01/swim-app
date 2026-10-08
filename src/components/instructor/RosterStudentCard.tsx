@@ -35,16 +35,18 @@ export function RosterStudentCard({ entry, displayStatus }: RosterStudentCardPro
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-surface-container-high">
-            <div
-              className="flex size-full items-center justify-center bg-primary-fixed text-label-lg font-bold text-on-primary-fixed-variant"
-              aria-hidden
-            >
-              {initials(entry.firstName, entry.lastName)}
+          <div className="relative size-12 shrink-0">
+            <div className="size-full overflow-hidden rounded-full bg-surface-container-high">
+              <div
+                className="flex size-full items-center justify-center bg-primary-fixed text-label-lg font-bold text-on-primary-fixed-variant"
+                aria-hidden
+              >
+                {initials(entry.firstName, entry.lastName)}
+              </div>
             </div>
             <div
               className={cn(
-                'absolute bottom-0 right-0 size-3.5 rounded-full border-2 border-surface-container-lowest',
+                'absolute bottom-0 right-0 z-10 size-3.5 rounded-full border-2 border-surface-container-lowest',
                 isCompleted && 'bg-secondary',
                 isMissing && 'bg-amber-500',
                 displayStatus === 'issues' && 'bg-tertiary',

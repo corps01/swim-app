@@ -70,7 +70,7 @@ export function InstructorShell({
               onClick={onCreateClass}
             >
               <MaterialIcon name="add" size={18} />
-              <span className="hidden sm:inline">+ Create Class</span>
+              <span className="hidden sm:inline">Create Class</span>
               <span className="sm:hidden">New</span>
             </Button>
           ) : (

@@ -109,7 +109,7 @@ export function InstructorHomePage({ onNavigate, onNewClass }: InstructorHomePag
             </p>
             <Button type="button" className="mt-4 rounded-full" onClick={onNewClass}>
               <MaterialIcon name="add" size={20} />
-              + Create Class
+              Create Class
             </Button>
           </div>
         ) : (
