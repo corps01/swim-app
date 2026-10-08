@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchInstructorRoster, type InstructorRosterEntry } from '../lib/api/instructorRoster'
 import { formatAppError } from '../lib/errors'
+import { useAuth } from './useAuth'
 
-export function useInstructorRoster(instructorId: string | undefined) {
+export function useInstructorRoster(classId?: string) {
+  const { signedIn, isInstructor } = useAuth()
   const [roster, setRoster] = useState<InstructorRosterEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const canLoad = signedIn && isInstructor
+
   const refresh = useCallback(async () => {
-    if (!instructorId) {
+    if (!canLoad) {
       setRoster([])
       setLoading(false)
       return
@@ -16,7 +20,7 @@ export function useInstructorRoster(instructorId: string | undefined) {
 
     setLoading(true)
     try {
-      const rows = await fetchInstructorRoster(instructorId)
+      const rows = await fetchInstructorRoster(classId)
       setRoster(rows)
       setError(null)
     } catch (err) {
@@ -26,7 +30,7 @@ export function useInstructorRoster(instructorId: string | undefined) {
     } finally {
       setLoading(false)
     }
-  }, [instructorId])
+  }, [canLoad, classId])
 
   useEffect(() => {
     void refresh()

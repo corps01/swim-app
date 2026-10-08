@@ -98,7 +98,7 @@ export function AuthForm() {
           {signingUp
             ? isParent
               ? 'Create your account, then add a swimmer and instructor invite.'
-              : 'Create your instructor account. Parents enroll with your profile ID.'
+              : 'Create your instructor account, then add a class and share its code with parents.'
             : isParent
               ? 'Sign in to manage swimmers and pre-session forms.'
               : 'Sign in to see the families linked to your classes.'}
@@ -260,7 +260,7 @@ export function AuthForm() {
               ? 'Sign in with the email you already confirmed.'
               : isParent
                 ? 'Create a parent account to enroll a swimmer.'
-                : 'Create an instructor account so parents can enroll with your profile ID.'}{' '}
+                : 'Create an instructor account, add a class, and share your class code with parents.'}{' '}
             <button
               type="button"
               className="text-label-sm text-primary underline"

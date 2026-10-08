@@ -1,13 +1,16 @@
-/** Parent enroll URL with `?invite=<instructor profile UUID>`. */
-export function inviteLinkFor(instructorId: string): string {
+/** Parent enroll URL with `?invite=<CLASS_CODE>`. */
+export function inviteLinkForClass(classCode: string): string {
   const url = new URL(window.location.href)
   url.search = ''
-  url.searchParams.set('invite', instructorId)
+  url.searchParams.set('invite', classCode.trim().toUpperCase())
   return url.toString()
 }
 
-/** Short label for deck signage; full invite remains the profile UUID. */
-export function shortClassCodeLabel(instructorId: string): string {
-  const compact = instructorId.replace(/-/g, '').slice(0, 4).toUpperCase()
-  return `SWIM-${compact}`
+/** Deck-friendly display for a 6-character class code. */
+export function formatClassCodeDisplay(classCode: string): string {
+  const normalized = classCode.trim().toUpperCase()
+  if (normalized.length === 6) {
+    return `${normalized.slice(0, 3)}-${normalized.slice(3)}`
+  }
+  return normalized
 }

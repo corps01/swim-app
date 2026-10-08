@@ -1,4 +1,15 @@
-export type FormStatus = 'completed' | 'missing'
+import { ageFromDateOnly, formatDateOnlyForDisplay } from './dateOnly'
+
+export type ParentEnrollmentBadge = 'enrolled' | 'not_enrolled'
+
+export interface SwimmerClassEnrollment {
+  classId: string | null
+  className: string | null
+  scheduleDetails: string | null
+  location: string | null
+  instructorName: string | null
+  status: 'active' | 'pending' | 'inactive'
+}
 
 export interface SwimmerRosterEntry {
   id: string
@@ -6,31 +17,18 @@ export interface SwimmerRosterEntry {
   lastName: string
   dateOfBirth: string
   notes: string
-  instructorName: string
-  classLabel: string
-  coachName: string
-  sessionLabel: string
-  levelLabel: string
-  formStatus: FormStatus
-  signedAtLabel?: string
+  enrollments: SwimmerClassEnrollment[]
+  enrollmentBadge: ParentEnrollmentBadge
 }
 
 export function formatDateOfBirth(isoDate: string): string {
-  if (!isoDate) return ''
-  const dob = new Date(`${isoDate}T12:00:00`)
-  if (Number.isNaN(dob.getTime())) return isoDate
-  return dob.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatDateOnlyForDisplay(isoDate)
 }
 
 export function ageFromDateOfBirth(isoDate: string): number | null {
-  if (!isoDate) return null
-  const dob = new Date(`${isoDate}T12:00:00`)
-  if (Number.isNaN(dob.getTime())) return null
-  const today = new Date()
-  let age = today.getFullYear() - dob.getFullYear()
-  const monthDelta = today.getMonth() - dob.getMonth()
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < dob.getDate())) {
-    age -= 1
-  }
-  return age
+  return ageFromDateOnly(isoDate)
+}
+
+export function swimmerHasActiveClass(enrollment: SwimmerRosterEntry): boolean {
+  return enrollment.enrollments.some((row) => row.status === 'active' && Boolean(row.classId))
 }

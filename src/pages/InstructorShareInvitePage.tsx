@@ -3,14 +3,13 @@ import { Link2, Mail, MessageCircle, Printer, QrCode } from 'lucide-react'
 import { AppLayout } from '../components/layout'
 import { useAuth } from '../hooks/useAuth'
 import { useInstructorRoster } from '../hooks/useInstructorRoster'
-import { PLACEHOLDER_CLASS_LABEL } from '../lib/api/instructors'
-import { inviteLinkFor, shortClassCodeLabel } from '../lib/instructorInvite'
+import { formatClassCodeDisplay, inviteLinkForClass } from '../lib/instructorInvite'
+import type { SwimClass } from '../types/class'
 import { Badge, Button, Card, MaterialIcon } from '../components/ui'
 import { cn } from '../lib/cn'
 
-const ROSTER_CAPACITY = 8
-
 interface InstructorShareInvitePageProps {
+  swimClass: SwimClass
   onBack: () => void
 }
 
@@ -20,18 +19,18 @@ function parentInitials(name: string): string {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
 }
 
-export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageProps) {
+export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShareInvitePageProps) {
   const { user } = useAuth()
-  const instructorId = user?.id
-  const { roster, loading, error, refresh } = useInstructorRoster(instructorId)
+  const { roster, loading, error, refresh } = useInstructorRoster(swimClass.id)
 
   const [toast, setToast] = useState<string | null>(null)
   const [qrOpen, setQrOpen] = useState(false)
   const [requireApproval, setRequireApproval] = useState(true)
 
-  const inviteLink = instructorId ? inviteLinkFor(instructorId) : ''
-  const inviteCode = instructorId ?? ''
-  const shortCode = instructorId ? shortClassCodeLabel(instructorId) : ''
+  const inviteCode = swimClass.class_code
+  const inviteLink = inviteLinkForClass(inviteCode)
+  const shortCode = formatClassCodeDisplay(inviteCode)
+  const capacity = swimClass.max_capacity ?? 8
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -53,12 +52,12 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
   }
 
   function openSms() {
-    const body = encodeURIComponent(`Join my swim class on SplashPass: ${inviteLink}`)
+    const body = encodeURIComponent(`Join ${swimClass.name} on SplashPass: ${inviteLink}`)
     window.location.href = `sms:?&body=${body}`
   }
 
   function openEmail() {
-    const subject = encodeURIComponent('SplashPass class invite')
+    const subject = encodeURIComponent(`Join ${swimClass.name} on SplashPass`)
     const body = encodeURIComponent(
       `Hi!\n\nJoin our class using this link:\n${inviteLink}\n\nOr enter class code: ${inviteCode}`,
     )
@@ -73,7 +72,6 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
       variant="flow"
     >
       <div className="flex flex-col gap-4 pb-8">
-        {/* Class context */}
         <section
           className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-primary-container to-primary p-4 text-on-primary shadow-[0_4px_20px_-2px_rgba(0,100,124,0.2)]"
         >
@@ -88,10 +86,10 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
           <div className="relative z-10 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-primary-fixed/30 bg-primary-fixed/20 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-primary-fixed">
-                <span>{PLACEHOLDER_CLASS_LABEL}</span>
+                <span>{shortCode}</span>
               </div>
               <h2 className="text-headline-md font-extrabold leading-tight text-on-primary">
-                {PLACEHOLDER_CLASS_LABEL}
+                {swimClass.name}
               </h2>
               <p className="mt-0.5 text-body-sm text-on-primary/80">
                 Instructor: {user?.fullName ?? 'Coach'}
@@ -102,19 +100,19 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
                 Enrolled
               </span>
               <span className="text-headline-sm font-extrabold text-on-primary">
-                {loading ? '—' : roster.length} / {ROSTER_CAPACITY}
+                {loading ? '—' : roster.length}
+                {swimClass.max_capacity != null ? ` / ${capacity}` : ''}
               </span>
             </div>
           </div>
         </section>
 
-        {/* Share card */}
         <Card variant="outline" className="rounded-3xl border-outline-variant/30 shadow-[0_4px_20px_-2px_rgba(0,100,124,0.08)]">
           <div className="mb-4 flex items-start justify-between gap-2">
             <div>
               <h3 className="text-headline-md font-extrabold text-on-surface">Share with parents</h3>
               <p className="mt-1 text-body-sm leading-relaxed text-on-surface-variant">
-                Parents join using your invite link or code to enroll swimmers on your roster.
+                Parents join using your invite link or 6-character class code.
               </p>
             </div>
             <Badge tone="primary" className="shrink-0 text-[11px] font-bold">Instant sync</Badge>
@@ -142,16 +140,11 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-label-sm font-bold text-on-surface">Class code</p>
                 <span className="rounded bg-primary-fixed/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-on-primary-fixed-variant">
-                  Short + UUID
+                  6 characters
                 </span>
               </div>
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="font-mono text-body-md font-bold text-primary">{shortCode}</p>
-                <span className="text-[11px] text-on-surface-variant">full key below</span>
-              </div>
-              <p className="mt-1 break-all font-mono text-[11px] leading-snug text-on-surface-variant">
-                {inviteCode}
-              </p>
+              <p className="font-mono text-headline-sm font-bold tracking-widest text-primary">{inviteCode}</p>
+              <p className="mt-1 text-[11px] text-on-surface-variant">Display as {shortCode}</p>
             </div>
             <Button
               type="button"
@@ -214,7 +207,6 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
           </div>
         </Card>
 
-        {/* Settings + activity */}
         <Card variant="outline" className="rounded-2xl p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -279,7 +271,7 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
                     <div className="min-w-0">
                       <p className="truncate text-label-md font-bold text-on-surface">{row.parentName}</p>
                       <p className="truncate text-[11px] text-on-surface-variant">
-                        {row.firstName}&apos;s parent · Joined via invite
+                        {row.firstName}&apos;s parent · Joined via class code
                       </p>
                     </div>
                   </div>
@@ -294,7 +286,6 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
         </section>
       </div>
 
-      {/* Copy toast */}
       {toast ? (
         <div
           className="pointer-events-none fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-on-surface/95 px-4 py-2.5 text-label-sm font-semibold text-surface-container-lowest shadow-lg backdrop-blur"
@@ -305,7 +296,6 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
         </div>
       ) : null}
 
-      {/* QR sheet */}
       {qrOpen ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-on-surface/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
@@ -327,16 +317,14 @@ export function InstructorShareInvitePage({ onBack }: InstructorShareInvitePageP
               Scan at pool deck
             </h3>
             <p className="mt-1 text-body-sm text-on-surface-variant">
-              Parents can open your invite link or enter your class code in SplashPass.
+              Parents can open your invite link or enter class code {inviteCode} in SplashPass.
             </p>
             <div className="mx-auto my-5 inline-block rounded-2xl border-2 border-dashed border-primary/30 bg-primary-fixed/30 p-4">
               <QrCode className="mx-auto size-32 text-primary" strokeWidth={1.25} aria-hidden />
-              <p className="mt-2 max-w-[12rem] break-all font-mono text-[10px] text-on-surface-variant">
-                {shortCode}
-              </p>
+              <p className="mt-2 font-mono text-headline-sm font-bold tracking-widest text-primary">{shortCode}</p>
             </div>
             <p className="mb-4 text-body-sm text-on-surface-variant">
-              Class: <strong className="text-on-surface">{PLACEHOLDER_CLASS_LABEL}</strong>
+              Class: <strong className="text-on-surface">{swimClass.name}</strong>
             </p>
             <Button type="button" fullWidth onClick={() => setQrOpen(false)}>Done</Button>
           </div>

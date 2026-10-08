@@ -1,6 +1,5 @@
 import type { ChildInstructorStatus } from '../../types/database'
 import { throwIfSupabaseError } from '../errors'
-import { PLACEHOLDER_CLASS_LABEL } from './instructors'
 import { getSupabaseClient } from '../supabase'
 
 export interface InstructorRosterEntry {
@@ -9,23 +8,59 @@ export interface InstructorRosterEntry {
   lastName: string
   parentName: string
   classLabel: string
+  classId: string | null
   status: ChildInstructorStatus
 }
 
-export async function fetchInstructorRoster(instructorId: string): Promise<InstructorRosterEntry[]> {
+export async function fetchInstructorRoster(classId?: string): Promise<InstructorRosterEntry[]> {
   const supabase = getSupabaseClient()
 
-  const { data: links, error: linksError } = await supabase
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  throwIfSupabaseError(authError)
+  if (!user) {
+    throw new Error('You must be signed in to view the roster.')
+  }
+
+  const instructorId = user.id
+
+  // RLS on child_instructor_relationships only returns rows for auth.uid(); filter matches session.
+  let linksQuery = supabase
     .from('child_instructor_relationships')
-    .select('child_id, status')
+    .select('child_id, status, class_id')
     .eq('instructor_id', instructorId)
     .eq('status', 'active')
+
+  if (classId) {
+    linksQuery = linksQuery.eq('class_id', classId)
+  }
+
+  const { data: links, error: linksError } = await linksQuery
 
   throwIfSupabaseError(linksError)
   if (!links?.length) return []
 
   const childIds = links.map((row) => row.child_id)
   const statusByChild = new Map(links.map((row) => [row.child_id, row.status as ChildInstructorStatus]))
+  const classIdByChild = new Map(links.map((row) => [row.child_id, row.class_id as string | null]))
+
+  const classIds = [...new Set(links.map((row) => row.class_id).filter(Boolean))] as string[]
+  const classNameById = new Map<string, string>()
+
+  if (classIds.length > 0) {
+    const { data: classes, error: classesError } = await supabase
+      .from('classes')
+      .select('id, name')
+      .in('id', classIds)
+
+    throwIfSupabaseError(classesError)
+    for (const swimClass of classes ?? []) {
+      classNameById.set(swimClass.id, swimClass.name)
+    }
+  }
 
   const { data: children, error: childrenError } = await supabase
     .from('children')
@@ -64,12 +99,18 @@ export async function fetchInstructorRoster(instructorId: string): Promise<Instr
     }
   }
 
-  return (children ?? []).map((child) => ({
-    childId: child.id,
-    firstName: child.first_name,
-    lastName: child.last_name,
-    parentName: parentByChild.get(child.id) ?? 'Parent',
-    classLabel: PLACEHOLDER_CLASS_LABEL,
-    status: statusByChild.get(child.id) ?? 'active',
-  }))
+  return (children ?? []).map((child) => {
+    const cid = classIdByChild.get(child.id) ?? null
+    const classLabel = cid ? (classNameById.get(cid) ?? 'Class') : 'Class'
+
+    return {
+      childId: child.id,
+      firstName: child.first_name,
+      lastName: child.last_name,
+      parentName: parentByChild.get(child.id) ?? 'Parent',
+      classLabel,
+      classId: cid,
+      status: statusByChild.get(child.id) ?? 'active',
+    }
+  })
 }

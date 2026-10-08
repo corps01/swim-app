@@ -8,14 +8,18 @@ export function useEnrollment() {
   const [error, setError] = useState<string | null>(null)
 
   const submitEnrollment = useCallback(
-    async (input: EnrollChildInput): Promise<EnrollChildResult | null> => {
+    async (
+      input: EnrollChildInput,
+    ): Promise<{ result: EnrollChildResult } | { error: string }> => {
       setSubmitting(true)
       setError(null)
       try {
-        return await enrollChildInClass(input)
+        const result = await enrollChildInClass(input)
+        return { result }
       } catch (err) {
-        setError(formatAppError(err))
-        return null
+        const message = formatAppError(err)
+        setError(message)
+        return { error: message }
       } finally {
         setSubmitting(false)
       }

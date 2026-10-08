@@ -1,6 +1,6 @@
 # Supabase setup checklist (parent + instructor)
 
-Use project **swim form app** (or your own) with the same table names: `profiles`, `children`, `parent_child_relationships`, `child_instructor_relationships`.
+Use project **swim form app** (or your own) with the same table names: `profiles`, `children`, `parent_child_relationships`, `child_instructor_relationships`, and (after step 2) `classes`.
 
 ## 1. Project settings
 
@@ -10,14 +10,14 @@ Use project **swim form app** (or your own) with the same table names: `profiles
 
 ## 2. Run SQL (required once)
 
-1. Open **SQL Editor**.
-2. Paste and run the full script: [supabase-rls.sql](./supabase-rls.sql).
+Open **SQL Editor** and run these in order (full details: [sql/README.md](./sql/README.md)):
 
-This script:
+| Step | File |
+|------|------|
+| 1 | [sql/01-core-rls.sql](./sql/01-core-rls.sql) — GRANTs, helpers, `create_child_for_parent`, RLS on core tables |
+| 2 | [sql/02-classes.sql](./sql/02-classes.sql) — `classes`, `class_id`, class RPCs, class enrollment policy |
 
-- `GRANT`s `authenticated` access to insert/select enrollment tables (without these, Postgres error `42501` / “permission denied for table children”).
-- Enables RLS policies for parents and instructors.
-- Creates `handle_new_user` on `auth.users` so `profiles.role` comes from sign-up metadata (`parent` or `instructor`).
+Both scripts are safe to re-run if something failed halfway.
 
 ## 3. Create accounts in the app
 
@@ -32,9 +32,9 @@ This script:
 
 1. Choose **Instructor** → **Create account** → submit.
 2. Confirm email if required, then **Sign in** as Instructor.
-3. You should see the instructor placeholder screen (“Parent enrollment only” / sign out). That means `profiles.role = instructor` loaded correctly.
+3. You should see the instructor dashboard.
 
-Share the instructor’s **profile UUID** with parents (Authentication → Users → user → same id as `profiles.id`, or Table Editor → `profiles` → copy `id` where `role = instructor`).
+Instructors create a **class** in the app and share the **6-character class code** (or invite link with `?invite=CODE`).
 
 ## 4. Verify in Supabase Dashboard
 
@@ -43,34 +43,28 @@ Share the instructor’s **profile UUID** with parents (Authentication → Users
 | Auth user exists | Authentication → Users | Email confirmed (if required) |
 | Profile row | Table Editor → `profiles` | Same `id` as auth user; `role` = `parent` or `instructor`; `full_name` set |
 | Trigger | Database → Triggers on `auth.users` | `on_auth_user_created` → `handle_new_user` |
-| Parent enrollment | App: enroll a swimmer with instructor UUID | Rows in `children`, `parent_child_relationships`, `child_instructor_relationships` |
-| Instructor lookup | Signed-in parent enters instructor UUID | `profiles_select_instructors` allows read of instructor row |
+| Classes | Table Editor → `classes` | Row after instructor creates a class in the app |
+| Parent enrollment | App: enroll with class code | Rows in `child_instructor_relationships` with `class_id` set |
 
 ### Quick SQL checks
 
-Replace `<user-uuid>` with the auth user id:
-
 ```sql
 select id, role, full_name from public.profiles where id = '<user-uuid>';
-```
 
-List instructors visible to any signed-in user (RLS as parent):
-
-```sql
--- run in SQL editor as postgres (bypasses RLS) to audit data:
-select id, full_name from public.profiles where role = 'instructor';
+select to_regclass('public.classes');
+select proname from pg_proc where proname in ('get_class_by_code', 'create_instructor_class');
 ```
 
 ## 5. Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| Sign-in works in Auth but app shows profile error | Re-run [supabase-rls.sql](./supabase-rls.sql); ensure `profiles` row exists for that UUID |
-| Sign-up succeeds then error immediately | Email confirmation is on; confirm email and sign in (app now shows a “check your email” message instead of failing) |
-| Parent cannot enroll / permission denied | Re-run SQL script for `GRANT`s on `children`, `parent_child_relationships`, `child_instructor_relationships` |
-| RLS blocks `children` insert (“new row violates…”) | Sign in as **parent** (`profiles.role` = `parent`, not dev skip auth). If you are Omar but still 403 on `children?select=id`, run SQL for **`create_child_for_parent`** — plain INSERT+RETURNING fails SELECT RLS until `parent_child_relationships` exists. |
-| Instructor not found on enroll | Instructor must have `role = instructor`; parent must paste full profile UUID |
-| Wrong role after sign-up | Metadata must include `role: instructor` or `parent` (app sends this); re-run trigger function from SQL script |
+| Sign-in works in Auth but app shows profile error | Re-run [01-core-rls.sql](./sql/01-core-rls.sql); ensure `profiles` row exists |
+| Sign-up succeeds then error immediately | Confirm email and sign in |
+| Parent cannot enroll / permission denied | Re-run both SQL scripts for GRANTs and `cir_insert_parent` |
+| RLS blocks `children` insert | Sign in as **parent**; use `create_child_for_parent` RPC (see 01-core-rls.sql) |
+| Class code not found | Run [02-classes.sql](./sql/02-classes.sql); instructor must create a class in the app |
+| `column cir.class_id does not exist` | Run [02-classes.sql](./sql/02-classes.sql) in full (adds `class_id` before policies) |
 
 ## 6. Local build
 

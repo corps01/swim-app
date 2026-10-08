@@ -21,7 +21,7 @@ import { getSupabaseClient } from '../lib/supabase'
 import type { UserRole } from '../types/database'
 
 const PROFILE_SETUP_MESSAGE =
-  'Password sign-in succeeded in Supabase Auth, but SplashPass could not load your row in Table Editor → profiles (same UUID as Authentication → Users). Run docs/supabase-rls.sql in the SQL editor, or insert that profile row manually, then sign in again.'
+  'Password sign-in succeeded in Supabase Auth, but SplashPass could not load your row in Table Editor → profiles (same UUID as Authentication → Users). Run docs/sql/01-core-rls.sql in the SQL editor, or insert that profile row manually, then sign in again.'
 
 type AuthContextValue = {
   user: AuthUser | null

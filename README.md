@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-In **Supabase → SQL Editor**, run [docs/supabase-rls.sql](docs/supabase-rls.sql) once. Step-by-step parent vs instructor testing: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md). Without those policies and grants, email/password sign-in can succeed in Auth but the app cannot read or create your `profiles` row, so you stay on the login screen.
+In **Supabase → SQL Editor**, run [docs/sql/01-core-rls.sql](docs/sql/01-core-rls.sql) then [docs/sql/02-classes.sql](docs/sql/02-classes.sql) (see [docs/sql/README.md](docs/sql/README.md)). Step-by-step: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md). Without those policies and grants, sign-in can succeed in Auth but the app cannot load `profiles`, so you stay on the login screen.
 
 If you already confirmed email before running that SQL, sign in again after running the script. For a user missing a profile row, insert one in SQL (replace the user id from **Authentication → Users**):
 

@@ -1,6 +1,44 @@
-import type { SwimmerRosterEntry } from '../swimmers'
+import type { ChildInstructorStatus } from '../../types/database'
+import { normalizeDateOnlyString } from '../dateOnly'
+import type { SwimmerClassEnrollment, SwimmerRosterEntry } from '../swimmers'
 import { throwIfSupabaseError } from '../errors'
 import { getSupabaseClient } from '../supabase'
+
+type ClassRow = {
+  id: string
+  name: string
+  schedule_details: string | null
+  location: string | null
+}
+
+type InstructorLinkRow = {
+  child_id: string
+  status: ChildInstructorStatus
+  instructor_id: string
+  class_id: string | null
+  classes: ClassRow | ClassRow[] | null
+}
+
+function normalizeEmbeddedClass(value: ClassRow | ClassRow[] | null): ClassRow | null {
+  if (!value) return null
+  if (Array.isArray(value)) return value[0] ?? null
+  return value
+}
+
+function mapLinkToEnrollment(
+  link: InstructorLinkRow,
+  instructorNameById: Map<string, string>,
+): SwimmerClassEnrollment {
+  const swimClass = normalizeEmbeddedClass(link.classes)
+  return {
+    classId: link.class_id,
+    className: swimClass?.name ?? null,
+    scheduleDetails: swimClass?.schedule_details ?? null,
+    location: swimClass?.location ?? null,
+    instructorName: instructorNameById.get(link.instructor_id) ?? null,
+    status: link.status,
+  }
+}
 
 export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRosterEntry[]> {
   const supabase = getSupabaseClient()
@@ -24,16 +62,28 @@ export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRost
 
   const { data: instructorLinks, error: instructorError } = await supabase
     .from('child_instructor_relationships')
-    .select('child_id, status, instructor_id')
+    .select(
+      `
+      child_id,
+      status,
+      instructor_id,
+      class_id,
+      classes (
+        id,
+        name,
+        schedule_details,
+        location
+      )
+    `,
+    )
     .in('child_id', childIds)
 
   throwIfSupabaseError(instructorError)
 
-  const instructorIds = [
-    ...new Set((instructorLinks ?? []).map((row) => row.instructor_id)),
-  ]
+  const links = (instructorLinks ?? []) as InstructorLinkRow[]
+  const instructorIds = [...new Set(links.map((row) => row.instructor_id))]
 
-  const instructorNames = new Map<string, string>()
+  const instructorNameById = new Map<string, string>()
   if (instructorIds.length > 0) {
     const { data: instructors, error: profilesError } = await supabase
       .from('profiles')
@@ -42,32 +92,30 @@ export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRost
 
     throwIfSupabaseError(profilesError)
     for (const instructor of instructors ?? []) {
-      instructorNames.set(instructor.id, instructor.full_name)
+      instructorNameById.set(instructor.id, instructor.full_name)
     }
   }
 
-  const instructorByChild = new Map(
-    (instructorLinks ?? []).map((row) => [row.child_id, row]),
-  )
+  const linksByChild = new Map<string, InstructorLinkRow[]>()
+  for (const link of links) {
+    const bucket = linksByChild.get(link.child_id) ?? []
+    bucket.push(link)
+    linksByChild.set(link.child_id, bucket)
+  }
 
   return (children ?? []).map((child) => {
-    const link = instructorByChild.get(child.id)
-    const instructorName = link ? instructorNames.get(link.instructor_id) : undefined
-    const pending = link?.status === 'pending'
+    const childLinks = linksByChild.get(child.id) ?? []
+    const enrollments = childLinks.map((link) => mapLinkToEnrollment(link, instructorNameById))
+    const hasActiveClass = enrollments.some((row) => row.status === 'active' && row.classId)
 
     return {
       id: child.id,
       firstName: child.first_name,
       lastName: child.last_name,
-      dateOfBirth: child.date_of_birth,
+      dateOfBirth: normalizeDateOnlyString(String(child.date_of_birth ?? '')),
       notes: child.notes ?? '',
-      instructorName: instructorName ?? 'Instructor',
-      classLabel: pending ? 'Pending instructor approval' : 'Active class',
-      coachName: instructorName ? `Coach ${instructorName.split(' ')[0]}` : 'Coach',
-      sessionLabel: 'Upcoming session',
-      levelLabel: 'Swimmer',
-      formStatus: pending ? 'missing' : 'completed',
-      signedAtLabel: pending ? undefined : 'Linked',
+      enrollments,
+      enrollmentBadge: hasActiveClass ? 'enrolled' : 'not_enrolled',
     }
   })
 }

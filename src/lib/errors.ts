@@ -39,7 +39,7 @@ function enrichMessage(message: string, err: SupabaseLikeError): string {
     lower.includes('row-level security') ||
     lower.includes('row level security')
   ) {
-    return `${message} Run docs/supabase-rls.sql in Supabase SQL Editor (profiles policies + GRANTs), then sign in again.`
+    return `${message} Run docs/sql/01-core-rls.sql in Supabase SQL Editor (profiles policies + GRANTs), then sign in again.`
   }
   return message
 }

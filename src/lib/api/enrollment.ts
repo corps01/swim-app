@@ -1,14 +1,22 @@
 import type { ChildEnrollmentDraft, EnrollChildInput, EnrollChildResult } from '../../types/enrollment'
 import { formatAppError } from '../errors'
-import { lookupInstructorByCode, PLACEHOLDER_CLASS_LABEL, type InstructorOption } from './instructors'
+import {
+  CLASS_CODE_NOT_FOUND_MESSAGE,
+  DUPLICATE_CLASS_ENROLLMENT_MESSAGE,
+} from '../classCode'
+import { normalizeDateOnlyString } from '../dateOnly'
+import { resolveClassByCode } from './classes'
 import { assertParentEnrollmentSession } from './sessionGuards'
 import { getSupabaseClient } from '../supabase'
 
-const INVALID_INVITE_MESSAGE = 'Invalid invite code'
+const INVALID_INVITE_MESSAGE = CLASS_CODE_NOT_FOUND_MESSAGE
 
 function validateNewChild(child: ChildEnrollmentDraft) {
   if (!child.firstName.trim() || !child.lastName.trim() || !child.dateOfBirth) {
     throw new Error('Child name and date of birth are required.')
+  }
+  if (!normalizeDateOnlyString(child.dateOfBirth)) {
+    throw new Error('Date of birth must be a valid YYYY-MM-DD value.')
   }
 }
 
@@ -25,13 +33,13 @@ function resolveChildTarget(input: EnrollChildInput): 'existing' | 'new' {
   return hasChildId ? 'existing' : 'new'
 }
 
-/** Resolves an instructor from an invite code (instructor profile UUID). */
-export async function resolveInstructorInviteCode(code: string): Promise<InstructorOption> {
-  const instructor = await lookupInstructorByCode(code)
-  if (!instructor) {
+/** Resolves a class from a 6-character class code (via SECURITY DEFINER RPC). */
+export async function resolveClassInviteCode(code: string) {
+  const resolved = await resolveClassByCode(code)
+  if (!resolved) {
     throw new Error(INVALID_INVITE_MESSAGE)
   }
-  return instructor
+  return resolved
 }
 
 async function verifyParentOwnsChild(parentUserId: string, childId: string): Promise<void> {
@@ -56,7 +64,7 @@ async function createChildForParent(child: ChildEnrollmentDraft): Promise<string
   const { data: childId, error: childError } = await supabase.rpc('create_child_for_parent', {
     p_first_name: child.firstName.trim(),
     p_last_name: child.lastName.trim(),
-    p_date_of_birth: child.dateOfBirth,
+    p_date_of_birth: normalizeDateOnlyString(child.dateOfBirth),
     p_notes: child.notes.trim() || null,
   })
 
@@ -71,64 +79,81 @@ async function createChildForParent(child: ChildEnrollmentDraft): Promise<string
   return childId
 }
 
-async function linkChildToInstructor(childId: string, instructorId: string): Promise<void> {
+function isDuplicateEnrollmentError(error: { code?: string } | null): boolean {
+  return error?.code === '23505'
+}
+
+async function linkChildToClass(
+  childId: string,
+  instructorId: string,
+  classId: string,
+): Promise<void> {
   const supabase = getSupabaseClient()
 
   const { data: existing, error: existingError } = await supabase
     .from('child_instructor_relationships')
     .select('id, status')
     .eq('child_id', childId)
-    .eq('instructor_id', instructorId)
+    .eq('class_id', classId)
     .maybeSingle()
 
   if (existingError) throw new Error(formatAppError(existingError))
 
   if (existing) {
     if (existing.status === 'active') {
-      throw new Error('This swimmer is already enrolled in this class.')
+      throw new Error(DUPLICATE_CLASS_ENROLLMENT_MESSAGE)
     }
     const { error: updateError } = await supabase
       .from('child_instructor_relationships')
-      .update({ status: 'active' })
+      .update({ status: 'active', instructor_id: instructorId })
       .eq('id', existing.id)
 
     if (updateError) throw new Error(formatAppError(updateError))
     return
   }
 
-  const { error: instructorLinkError } = await supabase
-    .from('child_instructor_relationships')
-    .insert({
-      child_id: childId,
-      instructor_id: instructorId,
-      status: 'active',
-    })
+  const { error: instructorLinkError } = await supabase.from('child_instructor_relationships').insert({
+    child_id: childId,
+    instructor_id: instructorId,
+    class_id: classId,
+    status: 'active',
+  })
 
-  if (instructorLinkError) throw new Error(formatAppError(instructorLinkError))
+  if (instructorLinkError) {
+    if (isDuplicateEnrollmentError(instructorLinkError)) {
+      throw new Error(DUPLICATE_CLASS_ENROLLMENT_MESSAGE)
+    }
+    throw new Error(formatAppError(instructorLinkError))
+  }
 }
 
-/** Enrolls a parent's swimmer in an instructor's class. */
+/**
+ * Enrolls a parent's swimmer in a class.
+ * Class code is validated via RPC before any new child row is inserted.
+ */
 export async function enrollChildInClass(input: EnrollChildInput): Promise<EnrollChildResult> {
   await assertParentEnrollmentSession(input.parentUserId)
 
-  const instructor = await resolveInstructorInviteCode(input.instructorCode)
+  const resolved = await resolveClassInviteCode(input.classCode)
   const target = resolveChildTarget(input)
 
-  const childId =
-    target === 'existing'
-      ? input.childId!.trim()
-      : await createChildForParent(input.child!)
-
+  let childId: string
   if (target === 'existing') {
+    childId = input.childId!.trim()
     await verifyParentOwnsChild(input.parentUserId, childId)
+  } else {
+    childId = await createChildForParent(input.child!)
   }
 
-  await linkChildToInstructor(childId, instructor.id)
+  await linkChildToClass(childId, resolved.instructorId, resolved.classId)
 
   return {
     childId,
-    instructorId: instructor.id,
-    instructorName: instructor.name,
-    classLabel: instructor.classLabel || PLACEHOLDER_CLASS_LABEL,
+    instructorId: resolved.instructorId,
+    instructorName: resolved.instructorName,
+    classId: resolved.classId,
+    classLabel: resolved.className,
+    location: resolved.location,
+    scheduleDetails: resolved.scheduleDetails,
   }
 }

@@ -7,7 +7,8 @@ export interface ChildEnrollmentDraft {
 
 export interface EnrollChildInput {
   parentUserId: string
-  instructorCode: string
+  /** 6-character class code from the instructor */
+  classCode: string
   /** Link an existing swimmer already on the parent account */
   childId?: string
   /** Create a new swimmer profile during enrollment */
@@ -18,5 +19,8 @@ export interface EnrollChildResult {
   childId: string
   instructorId: string
   instructorName: string
+  classId: string
   classLabel: string
+  location: string | null
+  scheduleDetails: string | null
 }

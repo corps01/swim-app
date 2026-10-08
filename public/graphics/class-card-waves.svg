@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="presentation" aria-hidden="true">
+  <!-- Static reference export (primary palette). Prefer <ClassCardWaves /> in React for per-class accents. -->
+  <path fill="rgba(6, 122, 150, 0.55)" d="M0,95 C120,35 220,25 340,70 C460,115 520,40 640,55 C760,70 860,30 1000,65 L1000,220 L0,220 Z"/>
+  <path fill="rgba(14, 165, 201, 0.42)" d="M0,125 C180,85 320,145 480,100 C620,65 740,120 880,95 C940,85 980,100 1000,108 L1000,220 L0,220 Z"/>
+  <path fill="rgba(183, 234, 255, 0.38)" d="M0,155 C200,120 380,175 520,140 C660,108 800,165 1000,138 L1000,220 L0,220 Z"/>
+</svg>
