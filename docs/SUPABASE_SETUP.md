@@ -52,7 +52,7 @@ Instructors create a **class** in the app and share the **6-character class code
 select id, role, full_name from public.profiles where id = '<user-uuid>';
 
 select to_regclass('public.classes');
-select proname from pg_proc where proname in ('get_class_by_code', 'create_instructor_class');
+select proname from pg_proc where proname in ('get_class_by_code', 'create_class_with_schedule');
 ```
 
 ## 5. Troubleshooting

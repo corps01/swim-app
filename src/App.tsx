@@ -1,10 +1,17 @@
+import { useEffect, useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useAppPath } from './hooks/useAppPath'
 import {
   INSTRUCTOR_ACCOUNT_PATH,
   INSTRUCTOR_CREATE_CLASS_PATH,
+  INSTRUCTOR_CLASSES_PATH,
   INSTRUCTOR_HOME_PATH,
-  INSTRUCTOR_ROSTER_PATH,
+  INSTRUCTOR_PROGRESS_LOG_PATH,
+  INSTRUCTOR_SWIMMERS_PATH,
+  LEGACY_INSTRUCTOR_ROSTER_PATH,
+  instructorShareClassPath,
+  isKnownInstructorPath,
+  isKnownParentPath,
   PARENT_HOME_PATH,
   parentEditSwimmerPath,
   parseParentRoute,
@@ -12,13 +19,18 @@ import {
 import { LoginRegisterPage } from './pages/LoginRegisterPage'
 import { EnrollChild } from './pages/parent/EnrollChild'
 import { EditSwimmerPage } from './pages/parent/EditSwimmerPage'
+import { ParentSwimmerActivityPage } from './pages/parent/ParentSwimmerActivityPage'
 import { ParentAccountPage } from './pages/parent/ParentAccountPage'
 import { InstructorAccountPage } from './pages/instructor/InstructorAccountPage'
 import { InstructorCreateClassPage } from './pages/InstructorCreateClassPage'
-import { InstructorHomePage } from './pages/InstructorHomePage'
-import { InstructorRosterPage } from './pages/instructor/InstructorRosterPage'
+import { InstructorShareInvitePage } from './pages/InstructorShareInvitePage'
+import { InstructorAgendaPage } from './pages/instructor/InstructorAgendaPage'
+import { InstructorClassesPage } from './pages/instructor/InstructorClassesPage'
+import { InstructorEditClassPage } from './pages/instructor/InstructorEditClassPage'
+import { InstructorSwimmersPage } from './pages/instructor/InstructorSwimmersPage'
+import { InstructorSessionPage } from './pages/instructor/InstructorSessionPage'
+import { InstructorProgressLogPage } from './pages/instructor/InstructorProgressLogPage'
 import { ParentHomePage } from './pages/ParentHomePage'
-import { useState } from 'react'
 import { useAuthNavigationGate, useRoleHomeRedirect } from './hooks/useRoleHomeRedirect'
 import { clearStoredPendingInviteCode } from './lib/pendingInvite'
 
@@ -32,12 +44,29 @@ function RouteResolvingScreen() {
 
 export default function App() {
   const { loading, signedIn, isInstructor, user, signOut } = useAuth()
-  const { pathname, navigate } = useAppPath()
+  const { pathname, search, navigate, replace, goBack } = useAppPath()
   const [homeRefreshKey, setHomeRefreshKey] = useState(0)
 
   const authReady = !loading
   useRoleHomeRedirect({ authReady, user, pathname, navigate })
   const { blocking: navigationGate } = useAuthNavigationGate(authReady, user)
+
+  useEffect(() => {
+    if (!authReady || !signedIn) return
+    if (isInstructor) {
+      if (pathname === LEGACY_INSTRUCTOR_ROSTER_PATH) {
+        replace(INSTRUCTOR_SWIMMERS_PATH + search)
+        return
+      }
+      if (!isKnownInstructorPath(pathname)) {
+        replace(INSTRUCTOR_HOME_PATH)
+      }
+      return
+    }
+    if (!isKnownParentPath(pathname)) {
+      replace(PARENT_HOME_PATH)
+    }
+  }, [authReady, signedIn, isInstructor, pathname, search, replace])
 
   async function handleSignOut() {
     await signOut()
@@ -56,14 +85,59 @@ export default function App() {
     if (pathname === INSTRUCTOR_CREATE_CLASS_PATH) {
       return (
         <InstructorCreateClassPage
-          onBack={() => navigate(INSTRUCTOR_HOME_PATH)}
-          onCreated={() => navigate(INSTRUCTOR_HOME_PATH)}
+          onBack={() => goBack(INSTRUCTOR_CLASSES_PATH)}
+          onCreated={(created) => replace(instructorShareClassPath(created.id))}
         />
       )
     }
 
-    if (pathname === INSTRUCTOR_ROSTER_PATH) {
-      return <InstructorRosterPage onNavigate={navigate} />
+    const shareClassMatch = pathname.match(/^\/instructor\/classes\/([^/]+)\/share\/?$/)
+    if (shareClassMatch?.[1]) {
+      return (
+        <InstructorShareInvitePage
+          classId={shareClassMatch[1]}
+          onBack={() => goBack(INSTRUCTOR_CLASSES_PATH)}
+        />
+      )
+    }
+
+    const editClassMatch = pathname.match(/^\/instructor\/classes\/([^/]+)\/edit\/?$/)
+    if (editClassMatch?.[1]) {
+      return (
+        <InstructorEditClassPage
+          classId={editClassMatch[1]}
+          onBack={() => goBack(INSTRUCTOR_CLASSES_PATH)}
+          onSaved={() => goBack(INSTRUCTOR_CLASSES_PATH)}
+        />
+      )
+    }
+
+    const sessionClassMatch = pathname.match(/^\/instructor\/classes\/([^/]+)\/?$/)
+    if (sessionClassMatch?.[1]) {
+      return (
+        <InstructorSessionPage classId={sessionClassMatch[1]} onNavigate={navigate} />
+      )
+    }
+
+    if (pathname === INSTRUCTOR_PROGRESS_LOG_PATH) {
+      return <InstructorProgressLogPage />
+    }
+
+    if (pathname === INSTRUCTOR_CLASSES_PATH) {
+      return (
+        <InstructorClassesPage
+          onNavigate={navigate}
+          onNewClass={() => navigate(INSTRUCTOR_CREATE_CLASS_PATH)}
+        />
+      )
+    }
+
+    if (pathname === LEGACY_INSTRUCTOR_ROSTER_PATH) {
+      return <RouteResolvingScreen />
+    }
+
+    if (pathname === INSTRUCTOR_SWIMMERS_PATH) {
+      return <InstructorSwimmersPage onNavigate={navigate} />
     }
 
     if (pathname === INSTRUCTOR_ACCOUNT_PATH) {
@@ -71,7 +145,7 @@ export default function App() {
     }
 
     return (
-      <InstructorHomePage
+      <InstructorAgendaPage
         onNavigate={navigate}
         onNewClass={() => navigate(INSTRUCTOR_CREATE_CLASS_PATH)}
       />
@@ -84,11 +158,11 @@ export default function App() {
     return (
       <EnrollChild
         onSignOut={handleSignOut}
-        onBack={() => navigate(PARENT_HOME_PATH)}
+        onBack={() => goBack(PARENT_HOME_PATH)}
         onFinished={() => {
           clearStoredPendingInviteCode()
           setHomeRefreshKey((key) => key + 1)
-          navigate(PARENT_HOME_PATH)
+          goBack(PARENT_HOME_PATH)
         }}
       />
     )
@@ -100,11 +174,20 @@ export default function App() {
         key={parentRoute.childId}
         childId={parentRoute.childId}
         onSignOut={handleSignOut}
-        onBack={() => navigate(PARENT_HOME_PATH)}
+        onBack={() => goBack(PARENT_HOME_PATH)}
         onSaved={() => {
           setHomeRefreshKey((key) => key + 1)
-          navigate(PARENT_HOME_PATH)
+          goBack(PARENT_HOME_PATH)
         }}
+      />
+    )
+  }
+
+  if (parentRoute.kind === 'activity') {
+    return (
+      <ParentSwimmerActivityPage
+        key={parentRoute.childId}
+        childId={parentRoute.childId}
       />
     )
   }

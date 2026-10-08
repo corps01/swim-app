@@ -35,8 +35,8 @@ export function InstructorAccountPage({ onNavigate, onSignOut }: InstructorAccou
           <div className="flex items-start gap-3">
             <MaterialIcon name="class" size={20} className="mt-0.5 text-primary" />
             <p className="text-body-sm text-on-surface-variant">
-              Use Classes for codes and schedules. Roster searches every swimmer across your
-              classes in one place.
+              Start on Today for your pool-side agenda. Use Classes for codes and invites.
+              Swimmers searches everyone across your classes in one place.
             </p>
           </div>
         </Card>

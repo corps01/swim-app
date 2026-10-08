@@ -3,6 +3,7 @@ import { AppLayout } from '../../components/layout'
 import { useAuth } from '../../hooks/useAuth'
 import { useParentSwimmers } from '../../hooks/useParentSwimmers'
 import { updateChildForParent } from '../../lib/api/children'
+import { formatSeasonRangeLabel } from '../../lib/classSchedule'
 import { normalizeDateOnlyString } from '../../lib/dateOnly'
 import { formatAppError } from '../../lib/errors'
 import {
@@ -58,13 +59,17 @@ function EnrollmentSummary({ enrollments }: { enrollments: SwimmerClassEnrollmen
 
   return (
     <ul className="flex flex-col gap-2">
-      {active.map((row) => (
-        <li key={row.classId} className="text-body-sm text-on-surface-variant">
-          <p className="font-semibold text-on-surface">{row.className ?? 'Class'}</p>
-          <p>Instructor: {row.instructorName ?? '—'}</p>
-          <p>{row.scheduleDetails?.trim() || 'Schedule not set'}</p>
-        </li>
-      ))}
+      {active.map((row) => {
+        const seasonLabel = formatSeasonRangeLabel(row.seasonStart, row.seasonEnd)
+        return (
+          <li key={row.classId} className="text-body-sm text-on-surface-variant">
+            <p className="font-semibold text-on-surface">{row.className ?? 'Class'}</p>
+            <p>Instructor: {row.instructorName ?? '—'}</p>
+            <p>{row.scheduleDetails?.trim() || 'Schedule not set'}</p>
+            {seasonLabel ? <p>{seasonLabel}</p> : null}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -287,6 +292,34 @@ export function EditSwimmerPage({ childId, onBack, onSaved, onSignOut }: EditSwi
 
           {error ? <p className="text-body-sm text-error" role="alert">{error}</p> : null}
 
+          {discardOpen ? (
+            <section
+              className="rounded-3xl border border-error/30 bg-error-container/30 p-card-padding"
+              aria-labelledby="discard-edits-title"
+            >
+              <h4 id="discard-edits-title" className="text-headline-sm text-on-error-container">
+                Discard unsaved changes?
+              </h4>
+              <p className="mt-1 text-body-sm text-on-error-container/90">
+                Your edits to this swimmer profile will be lost.
+              </p>
+              <div className="mt-4 flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  fullWidth
+                  className="rounded-full bg-error text-on-error"
+                  onClick={leaveEditor}
+                >
+                  Discard edits
+                </Button>
+                <Button type="button" fullWidth className="rounded-full" onClick={() => setDiscardOpen(false)}>
+                  Keep editing
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
           <Button type="submit" fullWidth className="h-14 rounded-full" disabled={saving}>
             {saving ? 'Saving…' : 'Save changes'}
           </Button>
@@ -295,29 +328,6 @@ export function EditSwimmerPage({ childId, onBack, onSaved, onSignOut }: EditSwi
           </Button>
         </form>
       </div>
-
-      {discardOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-on-surface/50 p-margin-screen backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-3xl bg-surface-container-lowest p-card-padding shadow-xl">
-            <h4 className="text-center text-headline-sm text-on-surface">Discard unsaved changes?</h4>
-            <p className="mt-2 text-center text-body-sm text-on-surface-variant">
-              Your edits to this swimmer profile will be lost.
-            </p>
-            <div className="mt-4 flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                fullWidth
-                className="bg-error text-on-error"
-                onClick={leaveEditor}
-              >
-                Discard edits
-              </Button>
-              <Button type="button" fullWidth onClick={() => setDiscardOpen(false)}>Keep editing</Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {toast ? (
         <div

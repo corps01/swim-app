@@ -2,7 +2,7 @@ import type { ChildInstructorStatus } from '../../types/database'
 import { throwIfSupabaseError } from '../errors'
 import { getSupabaseClient } from '../supabase'
 
-export interface InstructorRosterEntry {
+export interface InstructorSwimmerEntry {
   childId: string
   firstName: string
   lastName: string
@@ -12,7 +12,7 @@ export interface InstructorRosterEntry {
   status: ChildInstructorStatus
 }
 
-export async function fetchInstructorRoster(classId?: string): Promise<InstructorRosterEntry[]> {
+export async function fetchInstructorSwimmers(classId?: string): Promise<InstructorSwimmerEntry[]> {
   const supabase = getSupabaseClient()
 
   const {
@@ -22,12 +22,11 @@ export async function fetchInstructorRoster(classId?: string): Promise<Instructo
 
   throwIfSupabaseError(authError)
   if (!user) {
-    throw new Error('You must be signed in to view the roster.')
+    throw new Error('You must be signed in to view swimmers.')
   }
 
   const instructorId = user.id
 
-  // RLS on child_instructor_relationships only returns rows for auth.uid(); filter matches session.
   let linksQuery = supabase
     .from('child_instructor_relationships')
     .select('child_id, status, class_id')

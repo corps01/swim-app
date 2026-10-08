@@ -18,7 +18,7 @@ interface TabNavProps {
 export function MobileTabNav({ items, activeHref, onNavigate, ariaLabel }: TabNavProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-outline-variant/30 bg-surface/95 pb-safe shadow-[0_-4px_20px_rgba(0,100,124,0.08)] backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 bg-surface-container-lowest/90 pb-safe shadow-[0_-4px_20px_rgba(8,145,178,0.08)] backdrop-blur-xl md:hidden"
       aria-label={ariaLabel}
     >
       <div className="mx-auto flex h-16 max-w-md items-stretch justify-around px-gutter-mobile">

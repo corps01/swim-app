@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchLatestProgressLogsByChildIds, type ProgressLog } from '../lib/api/progressLogs'
 import { ParentShell } from '../components/navigation/ParentShell'
 import { InstructorInviteCodeBanner } from '../components/home/InstructorInviteCodeBanner'
 import { ParentHomeSwimmerCard } from '../components/home/ParentHomeSwimmerCard'
 import { useAuth } from '../hooks/useAuth'
 import { useParentSwimmers } from '../hooks/useParentSwimmers'
-import { PARENT_ENROLL_PATH, PARENT_HOME_PATH } from '../lib/appNavigation'
+import { normalizeClassCodeInput } from '../lib/classCode'
+import { setStoredPendingInviteCode } from '../lib/pendingInvite'
+import { parentEnrollPath, parentSwimmerActivityPath, PARENT_HOME_PATH } from '../lib/appNavigation'
 import { swimmerHasActiveClass } from '../lib/swimmers'
 import { Button, Card, MaterialIcon } from '../components/ui'
 
@@ -14,19 +17,43 @@ interface ParentHomePageProps {
 }
 
 function startEnrollWithInvite(code: string, onNavigate: (path: string) => void) {
-  const trimmed = code.trim()
-  if (trimmed) {
-    const url = new URL(window.location.href)
-    url.searchParams.set('invite', trimmed.toUpperCase())
-    window.history.replaceState({}, '', url.toString())
+  const normalized = normalizeClassCodeInput(code)
+  if (!normalized) {
+    onNavigate(parentEnrollPath())
+    return
   }
-  onNavigate(PARENT_ENROLL_PATH)
+  setStoredPendingInviteCode(normalized)
+  onNavigate(parentEnrollPath({ inviteCode: normalized }))
 }
 
 export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProps) {
   const { user } = useAuth()
-  const { swimmers, loading, error } = useParentSwimmers(user?.id)
+  const parentId = user?.id
+  const { swimmers, loading, error, refresh } = useParentSwimmers(parentId)
   const [inviteCode, setInviteCode] = useState('')
+  const [latestByChild, setLatestByChild] = useState<Map<string, ProgressLog>>(new Map())
+  const [activityLoading, setActivityLoading] = useState(false)
+
+  useEffect(() => {
+    const ids = swimmers.map((row) => row.id)
+    if (ids.length === 0) {
+      setLatestByChild(new Map())
+      setActivityLoading(false)
+      return
+    }
+    let cancelled = false
+    setActivityLoading(true)
+    void fetchLatestProgressLogsByChildIds(ids)
+      .then((map) => {
+        if (!cancelled) setLatestByChild(map)
+      })
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [swimmers])
 
   const parentName = user?.fullName || 'Parent'
   const firstName = parentName.split(' ')[0] || 'there'
@@ -45,7 +72,7 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
       activePath={PARENT_HOME_PATH}
       onNavigate={onNavigate}
       showEnrollCta
-      onEnroll={() => onNavigate(PARENT_ENROLL_PATH)}
+      onEnroll={() => onNavigate(parentEnrollPath())}
       screenTitle="Swimmers"
     >
       <div className="flex flex-col gap-stack-loose pb-8 pt-2">
@@ -127,7 +154,7 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
               <Button
                 type="button"
                 className="rounded-full"
-                onClick={() => onNavigate(PARENT_ENROLL_PATH)}
+                onClick={() => onNavigate(parentEnrollPath())}
               >
                 <MaterialIcon name="add_circle" size={18} />
                 Enroll child
@@ -140,8 +167,13 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
                   <li key={swimmer.id}>
                     <ParentHomeSwimmerCard
                       swimmer={swimmer}
-                      onEnroll={() => onNavigate(PARENT_ENROLL_PATH)}
+                      parentUserId={parentId ?? ''}
+                      latestActivity={latestByChild.get(swimmer.id) ?? null}
+                      activityLoading={activityLoading}
+                      onEnroll={(childId) => onNavigate(parentEnrollPath({ childId }))}
                       onEdit={() => onEditSwimmer(swimmer.id)}
+                      onViewActivity={() => onNavigate(parentSwimmerActivityPath(swimmer.id))}
+                      onEnrollmentChanged={() => void refresh()}
                     />
                   </li>
                 ))}
@@ -152,7 +184,7 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
                 variant="secondary"
                 fullWidth
                 className="rounded-2xl"
-                onClick={() => onNavigate(PARENT_ENROLL_PATH)}
+                onClick={() => onNavigate(parentEnrollPath())}
               >
                 <MaterialIcon name="person_add" size={18} />
                 Enroll another child

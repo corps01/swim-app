@@ -1,6 +1,7 @@
 import type { ChildInstructorStatus } from '../../types/database'
 import { normalizeDateOnlyString } from '../dateOnly'
 import type { SwimmerClassEnrollment, SwimmerRosterEntry } from '../swimmers'
+import { fetchClassSeasonRanges } from './classSchedule'
 import { throwIfSupabaseError } from '../errors'
 import { getSupabaseClient } from '../supabase'
 
@@ -28,14 +29,18 @@ function normalizeEmbeddedClass(value: ClassRow | ClassRow[] | null): ClassRow |
 function mapLinkToEnrollment(
   link: InstructorLinkRow,
   instructorNameById: Map<string, string>,
+  seasonByClassId: Map<string, { seasonStart: string; seasonEnd: string | null }>,
 ): SwimmerClassEnrollment {
   const swimClass = normalizeEmbeddedClass(link.classes)
+  const season = link.class_id ? seasonByClassId.get(link.class_id) : undefined
   return {
     classId: link.class_id,
     className: swimClass?.name ?? null,
     scheduleDetails: swimClass?.schedule_details ?? null,
     location: swimClass?.location ?? null,
     instructorName: instructorNameById.get(link.instructor_id) ?? null,
+    seasonStart: season?.seasonStart ?? null,
+    seasonEnd: season?.seasonEnd ?? null,
     status: link.status,
   }
 }
@@ -103,9 +108,16 @@ export async function fetchParentSwimmers(parentId: string): Promise<SwimmerRost
     linksByChild.set(link.child_id, bucket)
   }
 
+  const classIds = [
+    ...new Set(links.map((link) => link.class_id).filter((id): id is string => Boolean(id))),
+  ]
+  const seasonByClassId = await fetchClassSeasonRanges(classIds)
+
   return (children ?? []).map((child) => {
     const childLinks = linksByChild.get(child.id) ?? []
-    const enrollments = childLinks.map((link) => mapLinkToEnrollment(link, instructorNameById))
+    const enrollments = childLinks.map((link) =>
+      mapLinkToEnrollment(link, instructorNameById, seasonByClassId),
+    )
     const hasActiveClass = enrollments.some((row) => row.status === 'active' && row.classId)
 
     return {

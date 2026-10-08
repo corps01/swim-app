@@ -89,6 +89,15 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
     setInviteLinkHint(null)
   }, [])
 
+  useEffect(() => {
+    const childId = new URLSearchParams(window.location.search).get('childId')?.trim()
+    if (!childId || swimmersLoading) return
+    const exists = swimmers.some((row) => row.id === childId)
+    if (!exists) return
+    setMode('existing')
+    setSelectedChildId(childId)
+  }, [swimmers, swimmersLoading])
+
   const hasSwimmers = swimmers.length > 0
   const isFirstChildFlow = !swimmersLoading && !hasSwimmers
   const normalizedClassCode = normalizeClassCodeInput(classCode)
@@ -184,6 +193,12 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
     setSuccessResult(null)
     clearError()
     setStep('form')
+  }
+
+  function handleExit() {
+    clearStoredPendingInviteCode()
+    clearInviteQueryParam()
+    onBack()
   }
 
   function handleChangeClass() {
@@ -314,7 +329,7 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
     <AppLayout
       title={formTitle}
       subtitle={formSubtitle}
-      onBack={step === 'success' ? undefined : onBack}
+      onBack={step === 'success' ? undefined : handleExit}
       onSignOut={step === 'success' ? undefined : onSignOut}
       variant="flow"
     >
@@ -499,6 +514,9 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
             <h2 className="text-headline-md text-on-surface">You&apos;re in!</h2>
             <p className="mt-1 text-body-md text-on-surface-variant">
               {successResult.classLabel}
+            </p>
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              Class times and location are on your home screen.
             </p>
           </div>
 

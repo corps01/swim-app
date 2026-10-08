@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import {
   INSTRUCTOR_ACCOUNT_PATH,
+  INSTRUCTOR_CLASSES_PATH,
   INSTRUCTOR_HOME_PATH,
-  INSTRUCTOR_ROSTER_PATH,
+  INSTRUCTOR_SWIMMERS_PATH,
   type InstructorTab,
   instructorPathForTab,
 } from '../../lib/appNavigation'
@@ -11,8 +12,9 @@ import { Button, MaterialIcon } from '../ui'
 import { DesktopTabNav, MobileTabNav, type TabNavItem } from './ResponsiveTabNav'
 
 const INSTRUCTOR_TABS: TabNavItem[] = [
-  { id: 'classes', label: 'Classes', icon: 'class', href: INSTRUCTOR_HOME_PATH },
-  { id: 'roster', label: 'Roster', icon: 'groups', href: INSTRUCTOR_ROSTER_PATH },
+  { id: 'agenda', label: 'Today', icon: 'event_available', href: INSTRUCTOR_HOME_PATH },
+  { id: 'classes', label: 'Classes', icon: 'class', href: INSTRUCTOR_CLASSES_PATH },
+  { id: 'swimmers', label: 'Swimmers', icon: 'group', href: INSTRUCTOR_SWIMMERS_PATH },
   { id: 'account', label: 'Account', icon: 'account_circle', href: INSTRUCTOR_ACCOUNT_PATH },
 ]
 
@@ -27,6 +29,8 @@ interface InstructorShellProps {
   instructorName: string
   showCreateClassCta?: boolean
   onCreateClass?: () => void
+  /** Wider main column for two-column card grids (e.g. Classes). */
+  wideContent?: boolean
 }
 
 export function InstructorShell({
@@ -36,6 +40,7 @@ export function InstructorShell({
   instructorName,
   showCreateClassCta = false,
   onCreateClass,
+  wideContent = false,
 }: InstructorShellProps) {
   const activePath = activePathForTab(activeTab)
   const navProps = {
@@ -46,14 +51,22 @@ export function InstructorShell({
   }
 
   const mobileTitle =
-    activeTab === 'classes' ? 'Classes' : activeTab === 'roster' ? 'Roster' : 'Account'
+    activeTab === 'agenda'
+      ? 'Your day'
+      : activeTab === 'classes'
+        ? 'Classes'
+        : activeTab === 'swimmers'
+          ? 'Swimmers'
+          : 'Account'
 
   return (
     <div className="flex min-h-svh flex-col bg-surface text-on-surface">
       <header
         className="fixed inset-x-0 top-0 z-50 bg-surface/85 pt-safe shadow-[0_1px_8px_rgba(0,100,124,0.06)] backdrop-blur-xl"
       >
-        <div className="mx-auto flex h-16 w-full max-w-md items-center justify-between gap-2 px-margin-screen md:max-w-4xl">
+        <div
+          className={`mx-auto flex h-16 w-full max-w-md items-center justify-between gap-2 px-margin-screen ${wideContent ? 'md:max-w-6xl' : 'md:max-w-4xl'}`}
+        >
           <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-5">
             <BrandMark size="sm" className="shrink-0" />
             <DesktopTabNav {...navProps} />
@@ -85,7 +98,9 @@ export function InstructorShell({
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col pb-24 pt-16 md:max-w-4xl md:pb-8">
+      <main
+        className={`mx-auto flex w-full max-w-md flex-1 flex-col pb-24 pt-16 md:pb-8 ${wideContent ? 'md:max-w-6xl' : 'md:max-w-4xl'}`}
+      >
         {children}
       </main>
 

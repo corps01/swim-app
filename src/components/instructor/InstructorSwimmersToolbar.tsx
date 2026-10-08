@@ -1,30 +1,30 @@
 import { cn } from '../../lib/cn'
 import { MaterialIcon } from '../ui'
 
-export type RosterFilter = 'all' | 'missing' | 'issues' | 'completed'
+export type SwimmerListFilter = 'all' | 'missing' | 'issues' | 'completed'
 
-export interface RosterFilterCounts {
+export interface SwimmerListFilterCounts {
   all: number
   missing: number
   issues: number
   completed: number
 }
 
-interface InstructorRosterToolbarProps {
+interface InstructorSwimmersToolbarProps {
   search: string
   onSearchChange: (value: string) => void
-  activeFilter: RosterFilter
-  onFilterChange: (filter: RosterFilter) => void
-  counts: RosterFilterCounts
+  activeFilter: SwimmerListFilter
+  onFilterChange: (filter: SwimmerListFilter) => void
+  counts: SwimmerListFilterCounts
 }
 
-export function InstructorRosterToolbar({
+export function InstructorSwimmersToolbar({
   search,
   onSearchChange,
   activeFilter,
   onFilterChange,
   counts,
-}: InstructorRosterToolbarProps) {
+}: InstructorSwimmersToolbarProps) {
   const showClear = search.trim().length > 0
 
   return (
@@ -39,7 +39,7 @@ export function InstructorRosterToolbar({
           type="search"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search student name..."
+          placeholder="Search swimmer name..."
           className="h-12 w-full rounded-2xl bg-surface-container-lowest py-0 pl-11 pr-10 text-body-md text-on-surface shadow-[0_2px_12px_rgba(0,100,124,0.04)] outline-none transition-all placeholder:text-outline focus:ring-2 focus:ring-primary/20"
         />
         {showClear ? (

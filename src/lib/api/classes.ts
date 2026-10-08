@@ -1,4 +1,7 @@
 import type { ResolvedClassInvite, SwimClass, SwimClassInsert } from '../../types/class'
+import { schedulePayloadForRpc } from './classSchedule'
+import { getDeviceTimeZone } from '../timeZone/device'
+import { POOL_TIMEZONE_API_FALLBACK } from '../timeZone/pool'
 import { formatAppError } from '../errors'
 import { throwIfSupabaseError } from '../errors'
 import { getSupabaseClient } from '../supabase'
@@ -63,6 +66,10 @@ function parseSwimClassRow(data: unknown): SwimClass | null {
     name,
     location: typeof row.location === 'string' ? row.location : null,
     schedule_details: typeof row.schedule_details === 'string' ? row.schedule_details : null,
+    timezone:
+      typeof row.timezone === 'string' && row.timezone.trim()
+        ? row.timezone
+        : POOL_TIMEZONE_API_FALLBACK,
     class_code,
     max_capacity: typeof row.max_capacity === 'number' ? row.max_capacity : null,
     created_at,
@@ -80,11 +87,28 @@ export async function resolveClassByCode(rawCode: string): Promise<ResolvedClass
   return parseResolvedClass(data)
 }
 
+export async function fetchInstructorClass(classId: string): Promise<SwimClass | null> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('classes')
+    .select(
+      'id, instructor_id, name, location, schedule_details, timezone, class_code, max_capacity, created_at',
+    )
+    .eq('id', classId)
+    .maybeSingle()
+
+  throwIfSupabaseError(error)
+  if (!data) return null
+  return parseSwimClassRow(data)
+}
+
 export async function fetchInstructorClasses(instructorId: string): Promise<SwimClass[]> {
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('classes')
-    .select('id, instructor_id, name, location, schedule_details, class_code, max_capacity, created_at')
+    .select(
+      'id, instructor_id, name, location, schedule_details, timezone, class_code, max_capacity, created_at',
+    )
     .eq('instructor_id', instructorId)
     .order('created_at', { ascending: false })
 
@@ -92,23 +116,46 @@ export async function fetchInstructorClasses(instructorId: string): Promise<Swim
   return data ?? []
 }
 
-/** Creates a class; class code is generated server-side with collision retries. */
+/** Creates class + schedule rules atomically via RPC. */
 export async function createInstructorClass(
   _instructorId: string,
   input: SwimClassInsert,
 ): Promise<SwimClass> {
   const supabase = getSupabaseClient()
-  const { data, error } = await supabase.rpc('create_instructor_class', {
+  const { data, error } = await supabase.rpc('create_class_with_schedule', {
     p_name: input.name.trim(),
     p_location: input.location?.trim() || null,
-    p_schedule_details: input.schedule_details?.trim() || null,
+    p_timezone: getDeviceTimeZone(),
     p_max_capacity: input.max_capacity ?? null,
+    p_schedule: schedulePayloadForRpc(input.schedule),
   })
 
   if (error) throw new Error(formatAppError(error))
   const parsed = parseSwimClassRow(data)
   if (!parsed) {
     throw new Error('Could not create class. Please try again.')
+  }
+  return parsed
+}
+
+export async function updateInstructorClassWithSchedule(
+  classId: string,
+  input: SwimClassInsert,
+): Promise<SwimClass> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase.rpc('update_class_with_schedule', {
+    p_class_id: classId,
+    p_name: input.name.trim(),
+    p_location: input.location?.trim() || null,
+    p_timezone: getDeviceTimeZone(),
+    p_max_capacity: input.max_capacity ?? null,
+    p_schedule: schedulePayloadForRpc(input.schedule),
+  })
+
+  if (error) throw new Error(formatAppError(error))
+  const parsed = parseSwimClassRow(data)
+  if (!parsed) {
+    throw new Error('Could not update class. Please try again.')
   }
   return parsed
 }

@@ -8,6 +8,8 @@ export interface SwimmerClassEnrollment {
   scheduleDetails: string | null
   location: string | null
   instructorName: string | null
+  seasonStart: string | null
+  seasonEnd: string | null
   status: 'active' | 'pending' | 'inactive'
 }
 

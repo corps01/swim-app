@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchInstructorRoster, type InstructorRosterEntry } from '../lib/api/instructorRoster'
+import { fetchInstructorSwimmers, type InstructorSwimmerEntry } from '../lib/api/instructorSwimmers'
 import { formatAppError } from '../lib/errors'
 import { useAuth } from './useAuth'
 
-export function useInstructorRoster(classId?: string) {
+export function useInstructorSwimmers(classId?: string) {
   const { signedIn, isInstructor } = useAuth()
-  const [roster, setRoster] = useState<InstructorRosterEntry[]>([])
+  const [swimmers, setSwimmers] = useState<InstructorSwimmerEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -13,20 +13,20 @@ export function useInstructorRoster(classId?: string) {
 
   const refresh = useCallback(async () => {
     if (!canLoad) {
-      setRoster([])
+      setSwimmers([])
       setLoading(false)
       return
     }
 
     setLoading(true)
     try {
-      const rows = await fetchInstructorRoster(classId)
-      setRoster(rows)
+      const rows = await fetchInstructorSwimmers(classId)
+      setSwimmers(rows)
       setError(null)
     } catch (err) {
       const message = formatAppError(err)
       setError(message)
-      setRoster([])
+      setSwimmers([])
     } finally {
       setLoading(false)
     }
@@ -36,5 +36,5 @@ export function useInstructorRoster(classId?: string) {
     void refresh()
   }, [refresh])
 
-  return { roster, loading, error, refresh }
+  return { swimmers, loading, error, refresh }
 }

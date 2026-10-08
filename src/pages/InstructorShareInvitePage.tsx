@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link2, Mail, MessageCircle, Printer, QrCode } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { AppLayout } from '../components/layout'
 import { useAuth } from '../hooks/useAuth'
-import { useInstructorRoster } from '../hooks/useInstructorRoster'
+import { useInstructorSwimmers } from '../hooks/useInstructorSwimmers'
+import { fetchInstructorClass } from '../lib/api/classes'
+import { formatAppError } from '../lib/errors'
 import { formatClassCodeDisplay, inviteLinkForClass } from '../lib/instructorInvite'
 import type { SwimClass } from '../types/class'
 import { Badge, Button, Card, MaterialIcon } from '../components/ui'
-import { cn } from '../lib/cn'
 
 interface InstructorShareInvitePageProps {
-  swimClass: SwimClass
+  classId: string
   onBack: () => void
 }
 
@@ -19,13 +21,18 @@ function parentInitials(name: string): string {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
 }
 
-export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShareInvitePageProps) {
+function InstructorShareInviteContent({
+  swimClass,
+  onBack,
+}: {
+  swimClass: SwimClass
+  onBack: () => void
+}) {
   const { user } = useAuth()
-  const { roster, loading, error, refresh } = useInstructorRoster(swimClass.id)
+  const { swimmers, loading, error, refresh } = useInstructorSwimmers(swimClass.id)
 
   const [toast, setToast] = useState<string | null>(null)
   const [qrOpen, setQrOpen] = useState(false)
-  const [requireApproval, setRequireApproval] = useState(true)
 
   const inviteCode = swimClass.class_code
   const inviteLink = inviteLinkForClass(inviteCode)
@@ -100,7 +107,7 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
                 Enrolled
               </span>
               <span className="text-headline-sm font-extrabold text-on-primary">
-                {loading ? '—' : roster.length}
+                {loading ? '—' : swimmers.length}
                 {swimClass.max_capacity != null ? ` / ${capacity}` : ''}
               </span>
             </div>
@@ -128,7 +135,7 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
               variant="secondary"
               fullWidth
               className="rounded-2xl bg-surface-container-high shadow-sm"
-              onClick={() => void copyText(inviteLink, 'Invite link copied to clipboard!')}
+              onClick={() => void copyText(inviteLink, 'Invite link copied!')}
             >
               <Link2 className="size-4" aria-hidden />
               Copy invite link
@@ -151,7 +158,7 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
               variant="secondary"
               fullWidth
               className="rounded-2xl bg-surface-container-high shadow-sm"
-              onClick={() => void copyText(inviteCode, `${shortCode} copied to clipboard!`)}
+              onClick={() => void copyText(inviteCode, 'Class code copied!')}
             >
               <MaterialIcon name="content_copy" size={16} />
               Copy class code
@@ -197,7 +204,7 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
             <button
               type="button"
               className="flex flex-col items-center rounded-2xl border border-outline-variant/30 bg-surface-container-low p-2 transition-colors active:scale-[0.97] hover:border-primary/30 hover:bg-primary-fixed/20"
-              onClick={() => void copyText(inviteLink, 'Link ready — paste into your print slip')}
+              onClick={() => void copyText(inviteLink, 'Invite link copied!')}
             >
               <div className="mb-1.5 flex size-10 items-center justify-center rounded-xl bg-tertiary text-on-tertiary shadow-sm">
                 <Printer className="size-5" aria-hidden />
@@ -207,39 +214,10 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
           </div>
         </Card>
 
-        <Card variant="outline" className="rounded-2xl p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary-fixed text-primary">
-                <MaterialIcon name="verified_user" size={16} />
-              </div>
-              <div>
-                <p className="text-label-md font-bold text-on-surface">Require instructor approval</p>
-                <p className="text-[11px] text-on-surface-variant">Screen swimmers before adding to roster</p>
-              </div>
-            </div>
-            <label className="relative inline-flex cursor-pointer items-center">
-              <input
-                type="checkbox"
-                className="peer sr-only"
-                checked={requireApproval}
-                onChange={(event) => setRequireApproval(event.target.checked)}
-              />
-              <span
-                className={cn(
-                  'relative h-6 w-11 rounded-full bg-surface-container-high after:absolute after:left-[2px] after:top-[2px] after:size-5 after:rounded-full after:border after:border-outline-variant/40 after:bg-surface-container-lowest after:transition-all after:content-[""]',
-                  'peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-on-primary',
-                )}
-                aria-hidden
-              />
-            </label>
-          </div>
-        </Card>
-
         <section>
           <div className="mb-2 flex items-center justify-between px-1">
             <h4 className="text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">
-              Recent roster joins
+              Recent swimmer joins
             </h4>
             <Button variant="ghost" size="sm" className="h-auto text-label-sm" onClick={() => void refresh()}>
               Refresh
@@ -250,13 +228,13 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
             <p className="text-body-sm text-error">{error}</p>
           ) : loading ? (
             <p className="text-body-sm text-on-surface-variant">Loading activity…</p>
-          ) : roster.length === 0 ? (
+          ) : swimmers.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-outline-variant/50 bg-surface-container-lowest p-4 text-center text-body-sm text-on-surface-variant">
               No joins yet. Share your link to see parents here.
             </div>
           ) : (
             <ul className="divide-y divide-outline-variant/30 overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest">
-              {roster.map((row) => (
+              {swimmers.map((row) => (
                 <li
                   key={row.childId}
                   className="flex items-center justify-between gap-3 p-3.5 transition-colors hover:bg-surface-container-low/80"
@@ -319,9 +297,19 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
             <p className="mt-1 text-body-sm text-on-surface-variant">
               Parents can open your invite link or enter class code {inviteCode} in SplashPass.
             </p>
-            <div className="mx-auto my-5 inline-block rounded-2xl border-2 border-dashed border-primary/30 bg-primary-fixed/30 p-4">
-              <QrCode className="mx-auto size-32 text-primary" strokeWidth={1.25} aria-hidden />
-              <p className="mt-2 font-mono text-headline-sm font-bold tracking-widest text-primary">{shortCode}</p>
+            <div className="mx-auto my-5 inline-block rounded-2xl border-2 border-dashed border-primary/30 bg-white p-4">
+              <QRCodeSVG
+                value={inviteLink}
+                size={160}
+                level="M"
+                marginSize={2}
+                bgColor="#ffffff"
+                fgColor="#00647c"
+                role="img"
+                aria-label={`QR code for invite link to ${swimClass.name}`}
+                className="mx-auto"
+              />
+              <p className="mt-3 font-mono text-headline-sm font-bold tracking-widest text-primary">{shortCode}</p>
             </div>
             <p className="mb-4 text-body-sm text-on-surface-variant">
               Class: <strong className="text-on-surface">{swimClass.name}</strong>
@@ -332,4 +320,56 @@ export function InstructorShareInvitePage({ swimClass, onBack }: InstructorShare
       ) : null}
     </AppLayout>
   )
+}
+
+export function InstructorShareInvitePage({ classId, onBack }: InstructorShareInvitePageProps) {
+  const { user } = useAuth()
+  const [swimClass, setSwimClass] = useState<SwimClass | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const row = await fetchInstructorClass(classId)
+        if (!row || row.instructor_id !== user?.id) {
+          throw new Error('Class not found.')
+        }
+        if (!cancelled) setSwimClass(row)
+      } catch (err) {
+        if (!cancelled) {
+          setSwimClass(null)
+          setLoadError(formatAppError(err))
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [classId, user?.id])
+
+  if (loading) {
+    return (
+      <AppLayout title="Share class" onBack={onBack} variant="flow">
+        <p className="text-body-md text-on-surface-variant">Loading class…</p>
+      </AppLayout>
+    )
+  }
+
+  if (!swimClass) {
+    return (
+      <AppLayout title="Share class" onBack={onBack} variant="flow">
+        <p className="text-body-md text-error">{loadError ?? 'Could not load class.'}</p>
+        <Button type="button" className="mt-4 rounded-full" onClick={onBack}>Back to classes</Button>
+      </AppLayout>
+    )
+  }
+
+  return <InstructorShareInviteContent swimClass={swimClass} onBack={onBack} />
 }

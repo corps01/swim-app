@@ -1,17 +1,26 @@
+import { useState } from 'react'
 import {
   ageFromDateOfBirth,
   formatDateOfBirth,
   type SwimmerClassEnrollment,
   type SwimmerRosterEntry,
 } from '../../lib/swimmers'
+import { leaveClassEnrollment } from '../../lib/api/parentEnrollment'
 import { accentForClass } from '../../lib/classAccent'
+import type { ProgressLog } from '../../lib/api/progressLogs'
+import { formatLatestActivitySnippet } from '../../lib/progressLogDisplay'
 import { Badge, Button, MaterialIcon } from '../ui'
 import { ClassContextBanner, ClassDetailRows } from './ClassContextBanner'
 
 interface ParentHomeSwimmerCardProps {
   swimmer: SwimmerRosterEntry
-  onEnroll?: () => void
+  parentUserId: string
+  latestActivity?: ProgressLog | null
+  activityLoading?: boolean
+  onEnroll?: (childId: string) => void
   onEdit?: () => void
+  onViewActivity?: () => void
+  onEnrollmentChanged?: () => void
 }
 
 function initials(first: string, last: string) {
@@ -21,9 +30,13 @@ function initials(first: string, last: string) {
 function ClassEnrollmentBanner({
   enrollment,
   index,
+  onLeave,
+  leaving,
 }: {
   enrollment: SwimmerClassEnrollment
   index: number
+  onLeave: () => void
+  leaving: boolean
 }) {
   const accent = accentForClass(enrollment.classId, index)
   const schedule = enrollment.scheduleDetails?.trim() || 'Schedule not set'
@@ -34,21 +47,136 @@ function ClassEnrollmentBanner({
     <ClassContextBanner
       accent={accent}
       title={enrollment.className ?? 'Class'}
-      pill="Class"
+      pill={enrollment.status === 'pending' ? 'Pending' : 'Class'}
       subtitle={`Coach ${instructor}`}
     >
-      <ClassDetailRows accent={accent} schedule={schedule} location={location} instructor={instructor} />
+      <ClassDetailRows
+        accent={accent}
+        schedule={schedule}
+        location={location}
+        instructor={instructor}
+        seasonStart={enrollment.seasonStart}
+        seasonEnd={enrollment.seasonEnd}
+      />
+      <div className="mt-3 flex justify-end border-t border-outline-variant/20 pt-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="rounded-full text-error"
+          disabled={leaving || !enrollment.classId}
+          onClick={() => void onLeave()}
+        >
+          {leaving ? 'Leaving…' : 'Leave class'}
+        </Button>
+      </div>
     </ClassContextBanner>
   )
 }
 
-export function ParentHomeSwimmerCard({ swimmer, onEnroll, onEdit }: ParentHomeSwimmerCardProps) {
+function SwimmerActivityLink({
+  latestActivity,
+  activityLoading,
+  onViewActivity,
+}: {
+  latestActivity?: ProgressLog | null
+  activityLoading?: boolean
+  onViewActivity: () => void
+}) {
+  const hasUpdate = Boolean(latestActivity)
+  const hasPhoto = Boolean(latestActivity?.photoUrl)
+
+  return (
+    <button
+      type="button"
+      onClick={onViewActivity}
+      className="flex w-full flex-col gap-2 rounded-2xl border border-primary/25 bg-surface-container-low p-3 text-left transition-colors hover:bg-surface-container active:scale-[0.99]"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
+            <MaterialIcon name={hasPhoto ? 'photo_library' : 'timeline'} size={20} />
+          </div>
+          <div className="min-w-0">
+            <span className="text-label-md font-bold text-on-surface">Progress &amp; photos</span>
+            <p className="text-label-sm text-on-surface-variant">Coach updates from the pool deck</p>
+          </div>
+        </div>
+        <MaterialIcon name="chevron_right" size={22} className="shrink-0 text-primary" />
+      </div>
+
+      {activityLoading ? (
+        <p className="text-body-sm text-on-surface-variant">Loading activity…</p>
+      ) : hasUpdate ? (
+        <div className="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-2.5">
+          {latestActivity?.photoUrl ? (
+            <img
+              src={latestActivity.photoUrl}
+              alt=""
+              className="size-14 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-surface-container text-outline">
+              <MaterialIcon name="edit_note" size={24} />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <span className="text-label-sm font-bold uppercase tracking-wide text-primary">Latest</span>
+            <p className="line-clamp-2 text-body-sm font-medium text-on-surface">
+              {formatLatestActivitySnippet(latestActivity!)}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-outline-variant/50 bg-surface-container-lowest px-3 py-4 text-center">
+          <MaterialIcon name="photo_camera" size={28} className="text-outline" />
+          <p className="text-body-sm font-medium text-on-surface">No updates yet</p>
+          <p className="text-body-sm text-on-surface-variant">
+            When your coach logs progress or shares a poolside photo, it will show up here.
+          </p>
+        </div>
+      )}
+
+      <span className="text-label-sm font-semibold text-primary">View activity stream</span>
+    </button>
+  )
+}
+
+export function ParentHomeSwimmerCard({
+  swimmer,
+  parentUserId,
+  latestActivity,
+  activityLoading,
+  onEnroll,
+  onEdit,
+  onViewActivity,
+  onEnrollmentChanged,
+}: ParentHomeSwimmerCardProps) {
   const age = ageFromDateOfBirth(swimmer.dateOfBirth)
   const dobLabel = formatDateOfBirth(swimmer.dateOfBirth)
   const fullName = `${swimmer.firstName} ${swimmer.lastName}`
   const activeEnrollments = swimmer.enrollments.filter(
     (row) => row.status === 'active' && row.classId,
   )
+  const pendingEnrollments = swimmer.enrollments.filter(
+    (row) => row.status === 'pending' && row.classId,
+  )
+
+  const [leavingClassId, setLeavingClassId] = useState<string | null>(null)
+  const [leaveError, setLeaveError] = useState<string | null>(null)
+
+  async function handleLeave(classId: string) {
+    setLeaveError(null)
+    setLeavingClassId(classId)
+    try {
+      await leaveClassEnrollment(parentUserId, swimmer.id, classId)
+      onEnrollmentChanged?.()
+    } catch (err) {
+      setLeaveError(err instanceof Error ? err.message : 'Could not leave class.')
+    } finally {
+      setLeavingClassId(null)
+    }
+  }
 
   return (
     <article
@@ -62,8 +190,10 @@ export function ParentHomeSwimmerCard({ swimmer, onEnroll, onEdit }: ParentHomeS
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="truncate text-headline-sm text-on-surface">{fullName}</h4>
-              {swimmer.enrollmentBadge === 'enrolled' ? (
+              {activeEnrollments.length > 0 ? (
                 <Badge tone="success" size="sm">Enrolled</Badge>
+              ) : pendingEnrollments.length > 0 ? (
+                <Badge tone="warning" size="sm">Pending</Badge>
               ) : (
                 <Badge tone="warning" size="sm">Not enrolled</Badge>
               )}
@@ -76,11 +206,24 @@ export function ParentHomeSwimmerCard({ swimmer, onEnroll, onEdit }: ParentHomeS
         </div>
       </div>
 
-      {activeEnrollments.length > 0 ? (
+      {onViewActivity ? (
+        <SwimmerActivityLink
+          latestActivity={latestActivity}
+          activityLoading={activityLoading}
+          onViewActivity={onViewActivity}
+        />
+      ) : null}
+
+      {activeEnrollments.length > 0 || pendingEnrollments.length > 0 ? (
         <ul className="flex max-h-[min(28rem,70vh)] flex-col gap-3 overflow-y-auto pr-0.5 [-ms-overflow-style:auto] [scrollbar-width:thin]">
-          {activeEnrollments.map((enrollment, index) => (
+          {[...activeEnrollments, ...pendingEnrollments].map((enrollment, index) => (
             <li key={`${enrollment.classId}-${index}`}>
-              <ClassEnrollmentBanner enrollment={enrollment} index={index} />
+              <ClassEnrollmentBanner
+                enrollment={enrollment}
+                index={index}
+                leaving={leavingClassId === enrollment.classId}
+                onLeave={() => enrollment.classId && void handleLeave(enrollment.classId)}
+              />
             </li>
           ))}
         </ul>
@@ -90,21 +233,32 @@ export function ParentHomeSwimmerCard({ swimmer, onEnroll, onEdit }: ParentHomeS
             Not linked to a class yet. Use your instructor&apos;s class code to enroll.
           </p>
           {onEnroll ? (
-            <Button type="button" variant="secondary" size="sm" className="mt-3 rounded-full" onClick={onEnroll}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="mt-3 rounded-full"
+              onClick={() => onEnroll(swimmer.id)}
+            >
               Join a class
             </Button>
           ) : null}
         </div>
       )}
 
+      {leaveError ? <p className="text-body-sm text-error">{leaveError}</p> : null}
+
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" variant="secondary" fullWidth className="h-11 rounded-2xl" onClick={onEdit}>
           <MaterialIcon name="edit" size={18} />
           Edit profile
         </Button>
-        <Badge tone="neutral" className="justify-center py-2 sm:w-auto">
-          Pool forms — Coming soon
-        </Badge>
+        {activeEnrollments.length > 0 && onEnroll ? (
+          <Button type="button" variant="ghost" fullWidth className="h-11 rounded-2xl" onClick={() => onEnroll(swimmer.id)}>
+            <MaterialIcon name="add" size={18} />
+            Add another class
+          </Button>
+        ) : null}
       </div>
     </article>
   )

@@ -1,24 +1,38 @@
 import { useState, type FormEvent } from 'react'
 import { AppLayout } from '../components/layout'
+import {
+  ClassScheduleFormFields,
+  scheduleInputFromFormValues,
+  type ClassScheduleFormValues,
+} from '../components/instructor/ClassScheduleFormFields'
 import { useAuth } from '../hooks/useAuth'
 import { createInstructorClass } from '../lib/api/classes'
-import { LAST_CREATED_CLASS_STORAGE_KEY } from '../lib/appNavigation'
+import { validateClassSchedule } from '../lib/classSchedule'
 import type { SwimClass } from '../types/class'
 import { formatAppError } from '../lib/errors'
-import { Button, Input, MaterialIcon } from '../components/ui'
+import { Button, MaterialIcon } from '../components/ui'
 
 interface InstructorCreateClassPageProps {
   onBack: () => void
   onCreated: (classRow: SwimClass) => void
 }
 
+const initialScheduleValues = (): ClassScheduleFormValues => ({
+  location: '',
+  laneDetail: '',
+  daysOfWeek: [],
+  startTime: '16:00',
+  endTime: '16:45',
+  seasonStart: '',
+  seasonEnd: '',
+})
+
 export function InstructorCreateClassPage({ onBack, onCreated }: InstructorCreateClassPageProps) {
   const { user } = useAuth()
   const instructorId = user?.id
 
   const [name, setName] = useState('')
-  const [location, setLocation] = useState('')
-  const [scheduleDetails, setScheduleDetails] = useState('')
+  const [scheduleValues, setScheduleValues] = useState(initialScheduleValues)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -32,14 +46,20 @@ export function InstructorCreateClassPage({ onBack, onCreated }: InstructorCreat
       return
     }
 
+    const schedule = scheduleInputFromFormValues(scheduleValues)
+    const scheduleError = validateClassSchedule(schedule)
+    if (scheduleError) {
+      setError(scheduleError)
+      return
+    }
+
     setSubmitting(true)
     try {
       const created = await createInstructorClass(instructorId, {
         name,
-        location: location || null,
-        schedule_details: scheduleDetails || null,
+        location: scheduleValues.location || null,
+        schedule,
       })
-      sessionStorage.setItem(LAST_CREATED_CLASS_STORAGE_KEY, created.id)
       onCreated(created)
     } catch (err) {
       setError(formatAppError(err))
@@ -51,40 +71,39 @@ export function InstructorCreateClassPage({ onBack, onCreated }: InstructorCreat
   return (
     <AppLayout
       title="New class"
-      subtitle="Name, location, and schedule"
+      subtitle="Name, pool, and weekly session times"
       onBack={onBack}
       variant="flow"
     >
       <form className="flex flex-col gap-4 pb-8" onSubmit={(event) => void handleSubmit(event)}>
         <p className="text-body-sm text-on-surface-variant">
-          SplashPass generates a unique 6-character class code when you create the class.
+          SplashPass generates a unique 6-character class code.{' '}
+          <strong className="font-semibold text-on-surface">Weekly session days and times are required</strong>{' '}
+          so this class appears on your <strong className="font-semibold text-on-surface">Today</strong> agenda.
         </p>
 
-        <Input
-          label="Class name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="e.g. Tuesday Level 2"
-          required
-          autoFocus
-        />
-        <Input
-          label="Location (optional)"
-          value={location}
-          onChange={(event) => setLocation(event.target.value)}
-          placeholder="Pool or facility"
-        />
-        <Input
-          label="Schedule (optional)"
-          value={scheduleDetails}
-          onChange={(event) => setScheduleDetails(event.target.value)}
-          placeholder="e.g. Tue & Thu 4:00 PM"
+        <ClassScheduleFormFields
+          showName
+          name={name}
+          onNameChange={setName}
+          values={scheduleValues}
+          onChange={(patch) => setScheduleValues((current) => ({ ...current, ...patch }))}
         />
 
         {error ? <p className="text-body-sm text-error">{error}</p> : null}
 
-        <Button type="submit" fullWidth className="mt-2 h-12 rounded-2xl" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create'}
+        <Button
+          type="submit"
+          fullWidth
+          className="mt-2 h-12 rounded-2xl"
+          disabled={
+            submitting ||
+            scheduleValues.daysOfWeek.length === 0 ||
+            !scheduleValues.startTime ||
+            !scheduleValues.endTime
+          }
+        >
+          {submitting ? 'Creating…' : 'Create class & share'}
           <MaterialIcon name="check" size={18} />
         </Button>
       </form>

@@ -3,6 +3,7 @@ import {
   CLASS_ACCENT_STYLES,
   type ClassAccentKey,
 } from '../../lib/classAccent'
+import { formatSeasonRangeLabel } from '../../lib/classSchedule'
 import { ClassCardWaves } from '../graphics/ClassCardWaves'
 import { MaterialIcon } from '../ui'
 
@@ -65,10 +66,20 @@ interface ClassDetailRowsProps {
   schedule: string
   location: string
   instructor: string
+  seasonStart?: string | null
+  seasonEnd?: string | null
 }
 
-export function ClassDetailRows({ accent, schedule, location, instructor }: ClassDetailRowsProps) {
+export function ClassDetailRows({
+  accent,
+  schedule,
+  location,
+  instructor,
+  seasonStart,
+  seasonEnd,
+}: ClassDetailRowsProps) {
   const iconClass = CLASS_ACCENT_STYLES[accent].detailIconClass
+  const seasonLabel = formatSeasonRangeLabel(seasonStart, seasonEnd)
 
   return (
     <ul className="flex flex-col gap-2">
@@ -80,6 +91,12 @@ export function ClassDetailRows({ accent, schedule, location, instructor }: Clas
         <MaterialIcon name="location_on" size={18} className={`mt-0.5 shrink-0 ${iconClass}`} />
         <span>{location}</span>
       </li>
+      {seasonLabel ? (
+        <li className="flex items-start gap-2 text-body-sm text-on-surface-variant">
+          <MaterialIcon name="date_range" size={18} className={`mt-0.5 shrink-0 ${iconClass}`} />
+          <span>{seasonLabel}</span>
+        </li>
+      ) : null}
       <li className="flex items-start gap-2 text-body-sm text-on-surface-variant">
         <MaterialIcon name="sports" size={18} className={`mt-0.5 shrink-0 ${iconClass}`} />
         <span>{instructor}</span>

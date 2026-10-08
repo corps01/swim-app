@@ -1,24 +1,25 @@
-import type { InstructorRosterEntry } from '../../lib/api/instructorRoster'
+import type { InstructorSwimmerEntry } from '../../lib/api/instructorSwimmers'
 import { cn } from '../../lib/cn'
 import { MaterialIcon } from '../ui'
 
-export type RosterCardStatus = 'completed' | 'missing' | 'issues'
+export type SwimmerFormStatus = 'completed' | 'missing' | 'issues'
 
-interface RosterStudentCardProps {
-  entry: InstructorRosterEntry
-  displayStatus: RosterCardStatus
+interface InstructorSwimmerCardProps {
+  entry: InstructorSwimmerEntry
+  displayStatus: SwimmerFormStatus
+  onLogProgress: () => void
 }
 
 function initials(first: string, last: string) {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
 }
 
-export function rosterDisplayStatus(status: InstructorRosterEntry['status']): RosterCardStatus {
+export function swimmerFormDisplayStatus(status: InstructorSwimmerEntry['status']): SwimmerFormStatus {
   if (status === 'active') return 'completed'
   return 'missing'
 }
 
-export function RosterStudentCard({ entry, displayStatus }: RosterStudentCardProps) {
+export function InstructorSwimmerCard({ entry, displayStatus, onLogProgress }: InstructorSwimmerCardProps) {
   const fullName = `${entry.firstName} ${entry.lastName}`
   const isCompleted = displayStatus === 'completed'
   const isMissing = displayStatus === 'missing'
@@ -92,6 +93,17 @@ export function RosterStudentCard({ entry, displayStatus }: RosterStudentCardPro
         ) : null}
       </div>
 
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onLogProgress}
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-fixed/25 px-3 py-2 text-label-md font-bold text-primary active:scale-95"
+        >
+          <MaterialIcon name="photo_camera" size={18} />
+          Log progress
+        </button>
+      </div>
+
       {isMissing ? (
         <div className="-mx-card-padding -mb-card-padding mt-3 flex items-center justify-between rounded-b-lg bg-surface-container-low/50 px-card-padding py-2.5">
           <span className="text-label-sm text-outline">Liability &amp; health waiver</span>
@@ -108,7 +120,7 @@ export function RosterStudentCard({ entry, displayStatus }: RosterStudentCardPro
   )
 }
 
-function StatusBadge({ status }: { status: RosterCardStatus }) {
+function StatusBadge({ status }: { status: SwimmerFormStatus }) {
   if (status === 'completed') {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 text-label-sm font-semibold text-on-secondary-container">

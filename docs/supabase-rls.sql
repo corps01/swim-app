@@ -3,5 +3,9 @@
 -- Run in order:
 --   1. docs/sql/01-core-rls.sql
 --   2. docs/sql/02-classes.sql
+--   3. docs/sql/03-schedules.sql
+--   4. docs/sql/04-class-schedule-rpcs.sql
+--   5. docs/sql/05-progress-logs.sql
+--   6. docs/sql/06-progress-cheers.sql
 --
 -- See docs/sql/README.md
