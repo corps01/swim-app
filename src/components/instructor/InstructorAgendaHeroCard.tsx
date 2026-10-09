@@ -1,6 +1,6 @@
 import type { AgendaSession } from '../../lib/api/agenda'
 import { greetingForTimeZone } from '../../lib/agendaSessionTiming'
-import { ClassCardWaves } from '../graphics/ClassCardWaves'
+import { DriftWaves } from '../graphics/DriftWaves'
 import { MaterialIcon } from '../ui'
 
 interface InstructorAgendaHeroCardProps {
@@ -46,7 +46,7 @@ export function InstructorAgendaHeroCard({
         className="pointer-events-none absolute -right-12 -top-12 size-44 rounded-full bg-primary-fixed/20 blur-2xl"
         aria-hidden
       />
-      <ClassCardWaves accent="primary" className="opacity-[0.38]" />
+      <DriftWaves align="end" />
 
       <div className="relative z-10 flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2">

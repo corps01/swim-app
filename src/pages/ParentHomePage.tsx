@@ -175,9 +175,9 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
             </Card>
           ) : (
             <>
-              <ul className="flex flex-col gap-stack-base">
+              <ul className="grid grid-cols-1 gap-stack-base lg:grid-cols-2">
                 {orderedSwimmers.map((swimmer) => (
-                  <li key={swimmer.id}>
+                  <li key={swimmer.id} className="min-w-0">
                     <ParentHomeSwimmerCard
                       swimmer={swimmer}
                       parentUserId={parentId ?? ''}

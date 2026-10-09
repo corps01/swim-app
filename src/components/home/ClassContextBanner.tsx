@@ -5,6 +5,7 @@ import {
 } from '../../lib/classAccent'
 import { formatSeasonRangeLabel } from '../../lib/classSchedule'
 import { ClassCardWaves } from '../graphics/ClassCardWaves'
+import { DriftWaves } from '../graphics/DriftWaves'
 import { MaterialIcon } from '../ui'
 
 interface ClassContextBannerProps {
@@ -17,6 +18,8 @@ interface ClassContextBannerProps {
   aside?: ReactNode
   children?: ReactNode
   className?: string
+  /** Rotating water drift behind the header. */
+  driftWaves?: boolean
 }
 
 export function ClassContextBanner({
@@ -27,6 +30,7 @@ export function ClassContextBanner({
   aside,
   children,
   className,
+  driftWaves = false,
 }: ClassContextBannerProps) {
   const style = CLASS_ACCENT_STYLES[accent]
 
@@ -35,7 +39,7 @@ export function ClassContextBanner({
       className={`overflow-hidden rounded-2xl shadow-[0_4px_20px_-2px_rgba(15,23,42,0.12)] ${className ?? ''}`}
     >
       <div className="relative overflow-hidden p-4 text-white" style={{ background: style.gradient }}>
-        <ClassCardWaves accent={accent} />
+        {driftWaves ? <DriftWaves align="end" /> : <ClassCardWaves accent={accent} />}
         <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="min-w-0">
             {pill ? (

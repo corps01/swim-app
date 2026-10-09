@@ -37,6 +37,7 @@ export function InstructorInviteCodeBanner({
         pill="Join a class"
         title="Have a class code?"
         subtitle="Ask your coach for their 6-character code to connect swimmer records."
+        driftWaves
       >
         <form className="flex flex-col gap-2 sm:flex-row" onSubmit={handleSubmit}>
           <div className="relative flex-1">

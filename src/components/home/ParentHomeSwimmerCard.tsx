@@ -10,6 +10,7 @@ import { accentForClass } from '../../lib/classAccent'
 import type { ProgressLog } from '../../lib/api/progressLogs'
 import { formatLatestActivitySnippet } from '../../lib/progressLogDisplay'
 import { Badge, Button, MaterialIcon } from '../ui'
+import { DriftWaves } from '../graphics/DriftWaves'
 import { ClassContextBanner, ClassDetailRows } from './ClassContextBanner'
 
 interface ParentHomeSwimmerCardProps {
@@ -138,16 +139,13 @@ function SwimmerActivityLink({
         type="button"
         onClick={onViewActivity}
         aria-label={`View progress updates and photos for ${swimmerFirstName}`}
-        className="relative flex min-h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-[linear-gradient(90deg,#1e3a8a,#1d4ed8,#0284c7,#0891b2,#06b6d4,#14b8a6,#2dd4bf,#14b8a6,#06b6d4,#0891b2,#0284c7,#1d4ed8,#1e3a8a)] bg-[length:200%_100%] px-5 py-3 text-label-md font-bold text-white shadow-md shadow-cyan-500/25 animate-stream-flow transition-[box-shadow,transform] hover:ring-2 hover:ring-cyan-300/50 active:scale-[0.99] active:ring-2 active:ring-cyan-300/50 motion-reduce:animate-none"
+        className="relative flex min-h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-primary px-5 py-3 text-label-md font-bold text-white shadow-md shadow-cyan-500/25 transition-[box-shadow,transform] hover:ring-2 hover:ring-cyan-300/50 active:scale-[0.99] active:ring-2 active:ring-cyan-300/50"
       >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(255,255,255,0.45),transparent_58%)] animate-stream-ripple motion-reduce:animate-none"
-        />
-        <MaterialIcon name="waves" size={20} className="relative" />
-        <span className="relative sm:hidden">Progress &amp; Photos</span>
-        <span className="relative hidden sm:inline">See Progress &amp; Photos</span>
-        <MaterialIcon name="arrow_forward" size={20} className="relative" />
+        <DriftWaves />
+        <MaterialIcon name="waves" size={20} className="relative z-10" />
+        <span className="relative z-10 sm:hidden">Progress &amp; Photos</span>
+        <span className="relative z-10 hidden sm:inline">See Progress &amp; Photos</span>
+        <MaterialIcon name="arrow_forward" size={20} className="relative z-10" />
       </button>
     </div>
   )
@@ -191,7 +189,7 @@ export function ParentHomeSwimmerCard({
 
   return (
     <article
-      className="flex flex-col gap-4 rounded-3xl bg-surface-container-lowest p-card-padding shadow-[0_4px_16px_-2px_rgba(0,100,124,0.08),0_2px_6px_-1px_rgba(15,23,42,0.04)]"
+      className="flex h-full flex-col gap-4 rounded-3xl bg-surface-container-lowest p-card-padding shadow-[0_4px_16px_-2px_rgba(0,100,124,0.08),0_2px_6px_-1px_rgba(15,23,42,0.04)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">

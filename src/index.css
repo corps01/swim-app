@@ -36,25 +36,60 @@ html:not(.fonts-ready) .material-symbols-outlined {
   visibility: hidden;
 }
 
-@keyframes stream-flow {
-  0% {
-    background-position: 0% 50%;
+@keyframes invite-wave-drift {
+  from {
+    transform: rotate(0deg);
   }
-  100% {
-    background-position: -200% 50%;
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@keyframes stream-ripple {
-  0%,
-  100% {
-    opacity: 0.28;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 0.72;
-    transform: scale(1);
-  }
+.invite-wave-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: rotate(80deg);
+}
+
+.invite-wave-box-end {
+  left: auto;
+  right: 0;
+  transform: rotate(-80deg);
+}
+
+.invite-wave-box-end .invite-wave {
+  left: auto;
+  right: 8%;
+  margin-left: 0;
+  margin-right: -180px;
+}
+
+.invite-wave {
+  position: absolute;
+  top: 3%;
+  left: 10%;
+  width: 1500px;
+  height: 1300px;
+  margin-top: -250px;
+  margin-left: -150px;
+  transform-origin: 50% 48%;
+  border-radius: 43%;
+  background: #0af;
+  opacity: 0.08;
+  animation: invite-wave-drift 24s infinite linear;
+}
+
+.invite-wave-two {
+  background: #000;
+  opacity: 0.03;
+  animation-duration: 18s;
+}
+
+.invite-wave-three {
+  background: #77daff;
+  opacity: 0.1;
+  animation-duration: 32s;
 }
 
 @layer utilities {
@@ -66,17 +101,11 @@ html:not(.fonts-ready) .material-symbols-outlined {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  .animate-stream-flow {
-    animation: stream-flow 24s linear infinite;
-  }
-
-  .animate-stream-ripple {
-    animation: stream-ripple 8s ease-in-out infinite;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .motion-reduce\:animate-none {
+  .motion-reduce\:animate-none,
+  .invite-wave {
     animation: none;
   }
 }
