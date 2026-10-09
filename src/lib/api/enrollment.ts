@@ -99,17 +99,19 @@ async function linkChildToClass(
 
   if (existingError) throw new Error(formatAppError(existingError))
 
+  if (existing?.status === 'active') {
+    return
+  }
+
   if (existing) {
-    if (existing.status === 'active') {
-      throw new Error(DUPLICATE_CLASS_ENROLLMENT_MESSAGE)
-    }
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from('child_instructor_relationships')
       .update({ status: 'active', instructor_id: instructorId })
       .eq('id', existing.id)
+      .select('id')
 
     if (updateError) throw new Error(formatAppError(updateError))
-    return
+    if (updated && updated.length > 0) return
   }
 
   const { error: instructorLinkError } = await supabase.from('child_instructor_relationships').insert({
@@ -119,12 +121,22 @@ async function linkChildToClass(
     status: 'active',
   })
 
-  if (instructorLinkError) {
-    if (isDuplicateEnrollmentError(instructorLinkError)) {
-      throw new Error(DUPLICATE_CLASS_ENROLLMENT_MESSAGE)
-    }
-    throw new Error(formatAppError(instructorLinkError))
+  if (!instructorLinkError) return
+
+  if (isDuplicateEnrollmentError(instructorLinkError)) {
+    const { data: enrolled, error: rereadError } = await supabase
+      .from('child_instructor_relationships')
+      .select('id')
+      .eq('child_id', childId)
+      .eq('class_id', classId)
+      .maybeSingle()
+
+    if (rereadError) throw new Error(formatAppError(rereadError))
+    if (enrolled) return
+    throw new Error(DUPLICATE_CLASS_ENROLLMENT_MESSAGE)
   }
+
+  throw new Error(formatAppError(instructorLinkError))
 }
 
 /**

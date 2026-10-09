@@ -72,6 +72,20 @@ export default {
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
+      keyframes: {
+        'stream-flow': {
+          '0%': { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '-200% 50%' },
+        },
+        'stream-ripple': {
+          '0%, 100%': { opacity: '0.28', transform: 'scale(0.96)' },
+          '50%': { opacity: '0.72', transform: 'scale(1)' },
+        },
+      },
+      animation: {
+        'stream-flow': 'stream-flow 24s linear infinite',
+        'stream-ripple': 'stream-ripple 8s ease-in-out infinite',
+      },
       fontSize: {
         'headline-sm': ['18px', { lineHeight: '26px', fontWeight: '600' }],
         'label-md': ['13px', { lineHeight: '18px', fontWeight: '600' }],

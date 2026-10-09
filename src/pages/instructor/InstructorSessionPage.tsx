@@ -5,7 +5,7 @@ import { fetchInstructorAgenda, type AgendaSession } from '../../lib/api/agenda'
 import { fetchSessionDeckClass, fetchSessionDeckSwimmers, type SessionDeckSwimmer } from '../../lib/api/sessionDeck'
 import { formatTimeRange12h } from '../../lib/classSchedule'
 import { formatAppError } from '../../lib/errors'
-import { INSTRUCTOR_HOME_PATH, instructorProgressLogPath } from '../../lib/appNavigation'
+import { INSTRUCTOR_HOME_PATH, instructorProgressLogPath, instructorShareClassPath } from '../../lib/appNavigation'
 import {
   countAttendance,
   cycleAttendanceMark,
@@ -233,9 +233,23 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
           {error ? <p className="text-body-md text-error">{error}</p> : null}
 
           {!loading && swimmers.length === 0 ? (
-            <p className="text-body-md text-on-surface-variant">
-              No swimmers enrolled in this class yet. Share your class code from Classes.
-            </p>
+            <div className="flex flex-col items-center rounded-3xl bg-surface-container-low px-6 py-10 text-center">
+              <div className="mb-3 flex size-14 items-center justify-center rounded-full bg-primary-fixed text-primary">
+                <MaterialIcon name="ios_share" size={28} />
+              </div>
+              <h4 className="text-headline-sm text-on-surface">No swimmers enrolled in this class yet</h4>
+              <p className="mt-1 max-w-xs text-body-md text-on-surface-variant">
+                Share your invite link so parents can join this class.
+              </p>
+              <Button
+                type="button"
+                className="mt-4 h-11 rounded-full"
+                onClick={() => onNavigate(instructorShareClassPath(classId))}
+              >
+                <MaterialIcon name="ios_share" size={20} />
+                Share options
+              </Button>
+            </div>
           ) : null}
 
           {!loading && swimmers.length > 0 && filteredSwimmers.length === 0 ? (

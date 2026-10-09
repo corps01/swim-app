@@ -36,6 +36,27 @@ html:not(.fonts-ready) .material-symbols-outlined {
   visibility: hidden;
 }
 
+@keyframes stream-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+
+@keyframes stream-ripple {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+}
+
 @layer utilities {
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);
@@ -43,5 +64,19 @@ html:not(.fonts-ready) .material-symbols-outlined {
 
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .animate-stream-flow {
+    animation: stream-flow 24s linear infinite;
+  }
+
+  .animate-stream-ripple {
+    animation: stream-ripple 8s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-reduce\:animate-none {
+    animation: none;
   }
 }

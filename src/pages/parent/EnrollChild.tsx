@@ -54,7 +54,7 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
   const initialCode = useMemo(() => readInviteCodeFromLocation(), [])
   const deepLinkInviteRef = useRef(initialCode)
   const [step, setStep] = useState<'form' | 'success'>('form')
-  const [mode, setMode] = useState<'existing' | 'new'>('new')
+  const [modeOverride, setModeOverride] = useState<'existing' | 'new' | null>(null)
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
   const [newChild, setNewChild] = useState<ChildEnrollmentDraft>(emptyChild)
   const [classCode, setClassCode] = useState(initialCode)
@@ -66,6 +66,7 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
   const [showCodeEntry, setShowCodeEntry] = useState(() => initialCode.length !== CLASS_CODE_LENGTH)
   const [inviteLinkHint, setInviteLinkHint] = useState<string | null>(null)
   const classCodeInputRef = useRef<ClassCodeInputHandle>(null)
+  const submitLockRef = useRef(false)
 
   useEffect(() => {
     const rawInvite = new URLSearchParams(window.location.search).get('invite')
@@ -89,16 +90,23 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
     setInviteLinkHint(null)
   }, [])
 
-  useEffect(() => {
-    const childId = new URLSearchParams(window.location.search).get('childId')?.trim()
-    if (!childId || swimmersLoading) return
-    const exists = swimmers.some((row) => row.id === childId)
-    if (!exists) return
-    setMode('existing')
-    setSelectedChildId(childId)
-  }, [swimmers, swimmersLoading])
-
   const hasSwimmers = swimmers.length > 0
+  const mode: 'existing' | 'new' = hasSwimmers ? (modeOverride ?? 'existing') : 'new'
+
+  useEffect(() => {
+    if (swimmersLoading) return
+    if (!hasSwimmers) {
+      setSelectedChildId(null)
+      return
+    }
+    const childIdFromUrl = new URLSearchParams(window.location.search).get('childId')?.trim()
+    const urlMatch =
+      childIdFromUrl && swimmers.some((row) => row.id === childIdFromUrl) ? childIdFromUrl : null
+    setSelectedChildId((current) => {
+      if (current && swimmers.some((row) => row.id === current)) return current
+      return urlMatch ?? swimmers[0]?.id ?? null
+    })
+  }, [swimmers, swimmersLoading, hasSwimmers])
   const isFirstChildFlow = !swimmersLoading && !hasSwimmers
   const normalizedClassCode = normalizeClassCodeInput(classCode)
   const classReady = normalizedClassCode.length === CLASS_CODE_LENGTH && Boolean(resolvedClass)
@@ -170,17 +178,9 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
     }
   }, [normalizedClassCode])
 
-  useEffect(() => {
-    if (swimmersLoading) return
-    if (!hasSwimmers) {
-      setMode('new')
-      setSelectedChildId(null)
-    }
-  }, [swimmersLoading, hasSwimmers])
-
   function resetFlow() {
-    setMode(hasSwimmers ? 'existing' : 'new')
-    setSelectedChildId(null)
+    setModeOverride(hasSwimmers ? 'existing' : 'new')
+    setSelectedChildId(hasSwimmers ? (swimmers[0]?.id ?? null) : null)
     setNewChild(emptyChild)
     const invite = readInviteCodeFromLocation()
     deepLinkInviteRef.current = invite
@@ -225,13 +225,19 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    if (submitLockRef.current) return
+    submitLockRef.current = true
     setCodeError(null)
     setFormError(null)
     clearError()
 
-    if (!user) return
+    if (!user) {
+      submitLockRef.current = false
+      return
+    }
 
     if (!childIsValid()) {
+      submitLockRef.current = false
       return
     }
 
@@ -239,6 +245,7 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
     setClassCode(normalizedCode)
     if (normalizedCode.length !== CLASS_CODE_LENGTH) {
       setCodeError(CLASS_CODE_NOT_FOUND_MESSAGE)
+      submitLockRef.current = false
       return
     }
 
@@ -255,24 +262,28 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
             child: newChild,
           }
 
-    const outcome = await submitEnrollment(input)
-    if ('result' in outcome) {
-      setSuccessResult(outcome.result)
-      setStep('success')
-      return
-    }
+    try {
+      const outcome = await submitEnrollment(input)
+      if ('result' in outcome) {
+        setSuccessResult(outcome.result)
+        setStep('success')
+        return
+      }
 
-    const message = outcome.error
-    if (message === DUPLICATE_CLASS_ENROLLMENT_MESSAGE) {
-      setFormError(message)
-      return
-    }
-    if (
-      message === CLASS_CODE_NOT_FOUND_MESSAGE ||
-      message.toLowerCase().includes('class code') ||
-      message.toLowerCase().includes('not found')
-    ) {
-      setCodeError(CLASS_CODE_NOT_FOUND_MESSAGE)
+      const message = outcome.error
+      if (message === DUPLICATE_CLASS_ENROLLMENT_MESSAGE) {
+        setFormError(message)
+        return
+      }
+      if (
+        message === CLASS_CODE_NOT_FOUND_MESSAGE ||
+        message.toLowerCase().includes('class code') ||
+        message.toLowerCase().includes('not found')
+      ) {
+        setCodeError(CLASS_CODE_NOT_FOUND_MESSAGE)
+      }
+    } finally {
+      submitLockRef.current = false
     }
   }
 
@@ -421,7 +432,7 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
                 type="button"
                 variant={mode === 'existing' ? 'primary' : 'secondary'}
                 className="flex-1"
-                onClick={() => setMode('existing')}
+                onClick={() => setModeOverride('existing')}
               >
                 Existing swimmer
               </Button>
@@ -429,7 +440,7 @@ export function EnrollChild({ onSignOut, onBack, onFinished }: EnrollChildProps)
                 type="button"
                 variant={mode === 'new' ? 'primary' : 'secondary'}
                 className="flex-1"
-                onClick={() => setMode('new')}
+                onClick={() => setModeOverride('new')}
               >
                 <UserPlus className="size-4" aria-hidden />
                 New swimmer

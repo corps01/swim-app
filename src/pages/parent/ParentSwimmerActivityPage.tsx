@@ -324,7 +324,7 @@ export function ParentSwimmerActivityPage({ childId }: ParentSwimmerActivityPage
                           )}
                         >
                           <MaterialIcon name="celebration" size={16} filled={cheer.cheeredByMe} />
-                          {cheer.cheeredByMe ? 'Cheered' : 'Cheer'}
+                          {cheer.cheeredByMe ? 'Cheered' : 'Cheer!'}
                         </button>
                       </div>
                     </article>

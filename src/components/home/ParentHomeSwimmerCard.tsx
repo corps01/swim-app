@@ -75,10 +75,12 @@ function ClassEnrollmentBanner({
 }
 
 function SwimmerActivityLink({
+  swimmerFirstName,
   latestActivity,
   activityLoading,
   onViewActivity,
 }: {
+  swimmerFirstName: string
   latestActivity?: ProgressLog | null
   activityLoading?: boolean
   onViewActivity: () => void
@@ -87,12 +89,8 @@ function SwimmerActivityLink({
   const hasPhoto = Boolean(latestActivity?.photoUrl)
 
   return (
-    <button
-      type="button"
-      onClick={onViewActivity}
-      className="flex w-full flex-col gap-2 rounded-2xl border border-primary/25 bg-surface-container-low p-3 text-left transition-colors hover:bg-surface-container active:scale-[0.99]"
-    >
-      <div className="flex items-start justify-between gap-2">
+    <div className="flex w-full flex-col gap-3">
+      <div className="flex w-full flex-col gap-2 rounded-2xl border border-primary/20 bg-surface-container-low p-3 text-left">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
             <MaterialIcon name={hasPhoto ? 'photo_library' : 'timeline'} size={20} />
@@ -102,43 +100,56 @@ function SwimmerActivityLink({
             <p className="text-label-sm text-on-surface-variant">Coach updates from the pool deck</p>
           </div>
         </div>
-        <MaterialIcon name="chevron_right" size={22} className="shrink-0 text-primary" />
-      </div>
 
-      {activityLoading ? (
-        <p className="text-body-sm text-on-surface-variant">Loading activity…</p>
-      ) : hasUpdate ? (
-        <div className="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-2.5">
-          {latestActivity?.photoUrl ? (
-            <img
-              src={latestActivity.photoUrl}
-              alt=""
-              className="size-14 shrink-0 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-surface-container text-outline">
-              <MaterialIcon name="edit_note" size={24} />
+        {activityLoading ? (
+          <p className="text-body-sm text-on-surface-variant">Loading activity…</p>
+        ) : hasUpdate ? (
+          <div className="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-2.5">
+            {latestActivity?.photoUrl ? (
+              <img
+                src={latestActivity.photoUrl}
+                alt=""
+                className="size-14 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-surface-container text-outline">
+                <MaterialIcon name="edit_note" size={24} />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <span className="text-label-sm font-bold uppercase tracking-wide text-primary">Latest</span>
+              <p className="line-clamp-2 text-body-sm font-medium text-on-surface">
+                {formatLatestActivitySnippet(latestActivity!)}
+              </p>
             </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <span className="text-label-sm font-bold uppercase tracking-wide text-primary">Latest</span>
-            <p className="line-clamp-2 text-body-sm font-medium text-on-surface">
-              {formatLatestActivitySnippet(latestActivity!)}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-outline-variant/50 bg-surface-container-lowest px-3 py-4 text-center">
+            <MaterialIcon name="photo_camera" size={28} className="text-outline" />
+            <p className="text-body-sm font-medium text-on-surface">No updates yet</p>
+            <p className="text-body-sm text-on-surface-variant">
+              When your coach logs progress or shares a poolside photo, it will show up here.
             </p>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-outline-variant/50 bg-surface-container-lowest px-3 py-4 text-center">
-          <MaterialIcon name="photo_camera" size={28} className="text-outline" />
-          <p className="text-body-sm font-medium text-on-surface">No updates yet</p>
-          <p className="text-body-sm text-on-surface-variant">
-            When your coach logs progress or shares a poolside photo, it will show up here.
-          </p>
-        </div>
-      )}
+        )}
+      </div>
 
-      <span className="text-label-sm font-semibold text-primary">View activity stream</span>
-    </button>
+      <button
+        type="button"
+        onClick={onViewActivity}
+        aria-label={`View progress updates and photos for ${swimmerFirstName}`}
+        className="relative flex min-h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-[linear-gradient(90deg,#1e3a8a,#1d4ed8,#0284c7,#0891b2,#06b6d4,#14b8a6,#2dd4bf,#14b8a6,#06b6d4,#0891b2,#0284c7,#1d4ed8,#1e3a8a)] bg-[length:200%_100%] px-5 py-3 text-label-md font-bold text-white shadow-md shadow-cyan-500/25 animate-stream-flow transition-[box-shadow,transform] hover:ring-2 hover:ring-cyan-300/50 active:scale-[0.99] active:ring-2 active:ring-cyan-300/50 motion-reduce:animate-none"
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(255,255,255,0.45),transparent_58%)] animate-stream-ripple motion-reduce:animate-none"
+        />
+        <MaterialIcon name="waves" size={20} className="relative" />
+        <span className="relative sm:hidden">Progress &amp; Photos</span>
+        <span className="relative hidden sm:inline">See Progress &amp; Photos</span>
+        <MaterialIcon name="arrow_forward" size={20} className="relative" />
+      </button>
+    </div>
   )
 }
 
@@ -208,6 +219,7 @@ export function ParentHomeSwimmerCard({
 
       {onViewActivity ? (
         <SwimmerActivityLink
+          swimmerFirstName={swimmer.firstName}
           latestActivity={latestActivity}
           activityLoading={activityLoading}
           onViewActivity={onViewActivity}

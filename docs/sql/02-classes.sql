@@ -226,3 +226,16 @@ CREATE POLICY "cir_insert_parent"
     AND instructor_id IS NOT NULL
     AND public.enrollment_class_matches_instructor(class_id, instructor_id)
   );
+
+-- Parents can reactivate their own swimmer in a class (pending/inactive → active).
+DROP POLICY IF EXISTS "cir_update_parent" ON public.child_instructor_relationships;
+CREATE POLICY "cir_update_parent"
+  ON public.child_instructor_relationships FOR UPDATE
+  TO authenticated
+  USING (public.auth_user_is_parent_of_child(child_id))
+  WITH CHECK (
+    public.auth_user_is_parent_of_child(child_id)
+    AND class_id IS NOT NULL
+    AND instructor_id IS NOT NULL
+    AND public.enrollment_class_matches_instructor(class_id, instructor_id)
+  );

@@ -63,6 +63,19 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
     [swimmers],
   )
 
+  const orderedSwimmers = useMemo(() => {
+    return [...swimmers].sort((a, b) => {
+      const aMs = Date.parse(latestByChild.get(a.id)?.createdAt ?? '')
+      const bMs = Date.parse(latestByChild.get(b.id)?.createdAt ?? '')
+      const aHas = Number.isFinite(aMs)
+      const bHas = Number.isFinite(bMs)
+      if (aHas && bHas && aMs !== bMs) return bMs - aMs
+      if (aHas && !bHas) return -1
+      if (!aHas && bHas) return 1
+      return 0
+    })
+  }, [swimmers, latestByChild])
+
   function handleJoinFromBanner() {
     startEnrollWithInvite(inviteCode, onNavigate)
   }
@@ -163,7 +176,7 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
           ) : (
             <>
               <ul className="flex flex-col gap-stack-base">
-                {swimmers.map((swimmer) => (
+                {orderedSwimmers.map((swimmer) => (
                   <li key={swimmer.id}>
                     <ParentHomeSwimmerCard
                       swimmer={swimmer}
