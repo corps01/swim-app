@@ -77,19 +77,31 @@ html:not(.fonts-ready) .material-symbols-outlined {
   border-radius: 43%;
   background: #0af;
   opacity: 0.08;
-  animation: invite-wave-drift 24s infinite linear;
+  animation: invite-wave-drift 72s infinite linear;
 }
 
 .invite-wave-two {
   background: #000;
   opacity: 0.03;
-  animation-duration: 18s;
+  animation-duration: 54s;
 }
 
 .invite-wave-three {
   background: #77daff;
   opacity: 0.1;
-  animation-duration: 32s;
+  animation-duration: 96s;
+}
+
+.invite-wave-deep .invite-wave {
+  opacity: 0.55;
+}
+
+.invite-wave-deep .invite-wave-two {
+  opacity: 0.32;
+}
+
+.invite-wave-deep .invite-wave-three {
+  opacity: 0.18;
 }
 
 @layer utilities {

@@ -10,7 +10,7 @@ import { accentForClass } from '../../lib/classAccent'
 import type { ProgressLog } from '../../lib/api/progressLogs'
 import { formatLatestActivitySnippet } from '../../lib/progressLogDisplay'
 import { Badge, Button, MaterialIcon } from '../ui'
-import { DriftWaves } from '../graphics/DriftWaves'
+import { DriftWaves, wavePhaseFor } from '../graphics/DriftWaves'
 import { ClassContextBanner, ClassDetailRows } from './ClassContextBanner'
 
 interface ParentHomeSwimmerCardProps {
@@ -50,6 +50,7 @@ function ClassEnrollmentBanner({
       title={enrollment.className ?? 'Class'}
       pill={enrollment.status === 'pending' ? 'Pending' : 'Class'}
       subtitle={`Coach ${instructor}`}
+      wavePhase={wavePhaseFor(enrollment.classId, index)}
     >
       <ClassDetailRows
         accent={accent}

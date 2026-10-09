@@ -1,3 +1,4 @@
+import { wavePhaseFor } from '../graphics/DriftWaves'
 import { ClassContextBanner, ClassDetailRows } from '../home/ClassContextBanner'
 import { accentForClass, CLASS_ACCENT_STYLES } from '../../lib/classAccent'
 import { formatClassCodeDisplay } from '../../lib/instructorInvite'
@@ -66,6 +67,7 @@ export function InstructorClassCard({
         title={classRow.name}
         subtitle={scheduleLine || 'Schedule not set — add session times'}
         className="rounded-none shadow-none"
+        wavePhase={wavePhaseFor(classRow.id, listIndex)}
         aside={
           onViewSwimmers ? (
             <button

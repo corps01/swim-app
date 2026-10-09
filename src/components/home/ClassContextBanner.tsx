@@ -4,7 +4,6 @@ import {
   type ClassAccentKey,
 } from '../../lib/classAccent'
 import { formatSeasonRangeLabel } from '../../lib/classSchedule'
-import { ClassCardWaves } from '../graphics/ClassCardWaves'
 import { DriftWaves } from '../graphics/DriftWaves'
 import { MaterialIcon } from '../ui'
 
@@ -20,6 +19,8 @@ interface ClassContextBannerProps {
   className?: string
   /** Rotating water drift behind the header. */
   driftWaves?: boolean
+  /** Offsets the wave loop when several cards are on screen. */
+  wavePhase?: number
 }
 
 export function ClassContextBanner({
@@ -31,6 +32,7 @@ export function ClassContextBanner({
   children,
   className,
   driftWaves = false,
+  wavePhase = 0,
 }: ClassContextBannerProps) {
   const style = CLASS_ACCENT_STYLES[accent]
 
@@ -39,7 +41,12 @@ export function ClassContextBanner({
       className={`overflow-hidden rounded-2xl shadow-[0_4px_20px_-2px_rgba(15,23,42,0.12)] ${className ?? ''}`}
     >
       <div className="relative overflow-hidden p-4 text-white" style={{ background: style.gradient }}>
-        {driftWaves ? <DriftWaves align="end" /> : <ClassCardWaves accent={accent} />}
+        <DriftWaves
+          align="end"
+          colors={driftWaves ? undefined : style.waveLayers}
+          deep={!driftWaves}
+          phase={wavePhase}
+        />
         <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="min-w-0">
             {pill ? (
