@@ -5,7 +5,17 @@ import { fetchInstructorAgenda, type AgendaSession } from '../../lib/api/agenda'
 import { fetchSessionDeckClass, fetchSessionDeckSwimmers, type SessionDeckSwimmer } from '../../lib/api/sessionDeck'
 import { formatTimeRange12h } from '../../lib/classSchedule'
 import { formatAppError } from '../../lib/errors'
-import { INSTRUCTOR_HOME_PATH, instructorProgressLogPath, instructorShareClassPath } from '../../lib/appNavigation'
+import {
+  INSTRUCTOR_HOME_PATH,
+  instructorProgressLogPath,
+  instructorShareClassPath,
+  instructorSubmissionPath,
+} from '../../lib/appNavigation'
+import {
+  fetchSwimmerFormCompliance,
+  formComplianceKey,
+} from '../../lib/api/forms'
+import type { SwimmerFormCompliance } from '../../types/questionnaire'
 import {
   countAttendance,
   cycleAttendanceMark,
@@ -44,6 +54,7 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
   )
   const [sessionSlot, setSessionSlot] = useState<AgendaSession | null>(null)
   const [swimmers, setSwimmers] = useState<SessionDeckSwimmer[]>([])
+  const [complianceByKey, setComplianceByKey] = useState<Map<string, SwimmerFormCompliance>>(new Map())
   const [marks, setMarks] = useState<Record<string, AttendanceMark>>({})
   const [filter, setFilter] = useState<DeckFilter>('all')
   const [loading, setLoading] = useState(true)
@@ -72,6 +83,24 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (swimmers.length === 0) {
+      setComplianceByKey(new Map())
+      return
+    }
+    let cancelled = false
+    void fetchSwimmerFormCompliance(swimmers.map((swimmer) => ({ childId: swimmer.childId, classId })))
+      .then((next) => {
+        if (!cancelled) setComplianceByKey(next)
+      })
+      .catch(() => {
+        if (!cancelled) setComplianceByKey(new Map())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [swimmers, classId])
 
   const counts = useMemo(() => countAttendance(marks, swimmers.length), [marks, swimmers.length])
 
@@ -272,7 +301,12 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
               key={swimmer.childId}
               swimmer={swimmer}
               mark={marks[swimmer.childId] ?? 'unmarked'}
+              formCompliance={complianceByKey.get(formComplianceKey(swimmer.childId, classId)) ?? null}
               onToggleAttendance={() => toggleAttendance(swimmer.childId)}
+              onOpenSubmission={() => {
+                const submissionId = complianceByKey.get(formComplianceKey(swimmer.childId, classId))?.submissionId
+                if (submissionId) onNavigate(instructorSubmissionPath(submissionId, { from: 'deck', classId }))
+              }}
               onLogProgress={() =>
                 onNavigate(
                   instructorProgressLogPath({

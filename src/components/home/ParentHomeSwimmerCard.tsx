@@ -6,6 +6,9 @@ import {
   type SwimmerRosterEntry,
 } from '../../lib/swimmers'
 import { leaveClassEnrollment } from '../../lib/api/parentEnrollment'
+import { formComplianceKey } from '../../lib/api/forms'
+import type { ParentClassForm } from '../../types/questionnaire'
+import { FormComplianceBadge } from '../instructor/FormComplianceBadge'
 import { accentForClass } from '../../lib/classAccent'
 import type { ProgressLog } from '../../lib/api/progressLogs'
 import { formatLatestActivitySnippet } from '../../lib/progressLogDisplay'
@@ -22,6 +25,8 @@ interface ParentHomeSwimmerCardProps {
   onEdit?: () => void
   onViewActivity?: () => void
   onEnrollmentChanged?: () => void
+  formsByChildClass?: Map<string, ParentClassForm[]>
+  onOpenQuestionnaire?: (classId: string, templateId: string) => void
 }
 
 function initials(first: string, last: string) {
@@ -33,11 +38,17 @@ function ClassEnrollmentBanner({
   index,
   onLeave,
   leaving,
+  forms,
+  swimmerName,
+  onOpenQuestionnaire,
 }: {
   enrollment: SwimmerClassEnrollment
   index: number
   onLeave: () => void
   leaving: boolean
+  forms: ParentClassForm[]
+  swimmerName: string
+  onOpenQuestionnaire?: (classId: string, templateId: string) => void
 }) {
   const accent = accentForClass(enrollment.classId, index)
   const schedule = enrollment.scheduleDetails?.trim() || 'Schedule not set'
@@ -60,6 +71,24 @@ function ClassEnrollmentBanner({
         seasonStart={enrollment.seasonStart}
         seasonEnd={enrollment.seasonEnd}
       />
+      {forms.length > 0 && enrollment.classId ? (
+        <div className="mt-3 flex flex-col gap-2 border-t border-outline-variant/20 pt-3">
+          {forms.map((form) => (
+            <div key={form.templateId} className="flex flex-wrap items-center gap-2">
+              <FormComplianceBadge
+                status={form.signed ? 'signed' : 'pending'}
+                swimmerName={swimmerName}
+                onOpen={
+                  !form.signed && onOpenQuestionnaire
+                    ? () => onOpenQuestionnaire(enrollment.classId!, form.templateId)
+                    : undefined
+                }
+              />
+              {form.isMandatoryForEnrollment && !form.signed ? <Badge tone="warning">Required</Badge> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-3 flex justify-end border-t border-outline-variant/20 pt-3">
         <Button
           type="button"
@@ -161,6 +190,8 @@ export function ParentHomeSwimmerCard({
   onEdit,
   onViewActivity,
   onEnrollmentChanged,
+  formsByChildClass,
+  onOpenQuestionnaire,
 }: ParentHomeSwimmerCardProps) {
   const age = ageFromDateOfBirth(swimmer.dateOfBirth)
   const dobLabel = formatDateOfBirth(swimmer.dateOfBirth)
@@ -234,6 +265,13 @@ export function ParentHomeSwimmerCard({
                 index={index}
                 leaving={leavingClassId === enrollment.classId}
                 onLeave={() => enrollment.classId && void handleLeave(enrollment.classId)}
+                forms={
+                  enrollment.classId
+                    ? (formsByChildClass?.get(formComplianceKey(swimmer.id, enrollment.classId)) ?? [])
+                    : []
+                }
+                swimmerName={`${swimmer.firstName} ${swimmer.lastName}`.trim()}
+                onOpenQuestionnaire={onOpenQuestionnaire}
               />
             </li>
           ))}

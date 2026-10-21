@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import type { SessionDeckSwimmer } from '../../lib/api/sessionDeck'
+import type { SwimmerFormCompliance } from '../../types/questionnaire'
 import type { AttendanceMark } from '../../lib/sessionAttendance'
 import { MaterialIcon } from '../ui'
 import { cn } from '../../lib/cn'
+import { FormComplianceBadge } from './FormComplianceBadge'
 
 interface DeckSwimmerCardProps {
   swimmer: SessionDeckSwimmer
   mark: AttendanceMark
+  formCompliance?: SwimmerFormCompliance | null
   onToggleAttendance: () => void
   onLogProgress: () => void
+  onOpenSubmission?: () => void
 }
 
 function attendanceMeta(mark: AttendanceMark): {
@@ -41,7 +45,14 @@ function attendanceMeta(mark: AttendanceMark): {
   }
 }
 
-export function DeckSwimmerCard({ swimmer, mark, onToggleAttendance, onLogProgress }: DeckSwimmerCardProps) {
+export function DeckSwimmerCard({
+  swimmer,
+  mark,
+  formCompliance,
+  onToggleAttendance,
+  onLogProgress,
+  onOpenSubmission,
+}: DeckSwimmerCardProps) {
   const [notesExpanded, setNotesExpanded] = useState(false)
   const hasMedicalNotes = swimmer.notes.trim().length > 0
   const fullName = `${swimmer.firstName} ${swimmer.lastName}`
@@ -56,11 +67,16 @@ export function DeckSwimmerCard({ swimmer, mark, onToggleAttendance, onLogProgre
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-headline-md text-on-surface">{fullName}</h3>
-            {swimmer.hasFormAlert ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-tertiary-fixed px-2.5 py-0.5 text-label-sm font-bold text-on-tertiary-fixed">
-                <MaterialIcon name="warning" size={14} />
-                Forms pending
-              </span>
+            {formCompliance ? (
+              <FormComplianceBadge
+                status={formCompliance.status}
+                swimmerName={fullName}
+                onOpen={
+                  formCompliance.status === 'signed' && formCompliance.submissionId
+                    ? onOpenSubmission
+                    : undefined
+                }
+              />
             ) : null}
           </div>
           <p className="mt-0.5 flex items-center gap-1 text-body-md text-on-surface-variant">

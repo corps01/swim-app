@@ -5,6 +5,8 @@ import {
   INSTRUCTOR_ACCOUNT_PATH,
   INSTRUCTOR_CREATE_CLASS_PATH,
   INSTRUCTOR_CLASSES_PATH,
+  INSTRUCTOR_FORM_NEW_PATH,
+  INSTRUCTOR_FORMS_PATH,
   INSTRUCTOR_HOME_PATH,
   INSTRUCTOR_PROGRESS_LOG_PATH,
   INSTRUCTOR_SWIMMERS_PATH,
@@ -15,11 +17,14 @@ import {
   PARENT_HOME_PATH,
   parentEditSwimmerPath,
   parseParentRoute,
+  submissionBackPath,
 } from './lib/appNavigation'
+import { markQuestionnaireSigned } from './lib/questionnaireNotice'
 import { LoginRegisterPage } from './pages/LoginRegisterPage'
 import { EnrollChild } from './pages/parent/EnrollChild'
 import { EditSwimmerPage } from './pages/parent/EditSwimmerPage'
 import { ParentSwimmerActivityPage } from './pages/parent/ParentSwimmerActivityPage'
+import { ParentQuestionnairePage } from './pages/parent/ParentQuestionnairePage'
 import { ParentAccountPage } from './pages/parent/ParentAccountPage'
 import { InstructorAccountPage } from './pages/instructor/InstructorAccountPage'
 import { InstructorCreateClassPage } from './pages/InstructorCreateClassPage'
@@ -30,6 +35,9 @@ import { InstructorEditClassPage } from './pages/instructor/InstructorEditClassP
 import { InstructorSwimmersPage } from './pages/instructor/InstructorSwimmersPage'
 import { InstructorSessionPage } from './pages/instructor/InstructorSessionPage'
 import { InstructorProgressLogPage } from './pages/instructor/InstructorProgressLogPage'
+import { InstructorFormsPage } from './pages/instructor/InstructorFormsPage'
+import { InstructorFormBuilderPage } from './pages/instructor/InstructorFormBuilderPage'
+import { InstructorSubmissionPage } from './pages/instructor/InstructorSubmissionPage'
 import { ParentHomePage } from './pages/ParentHomePage'
 import { useAuthNavigationGate, useRoleHomeRedirect } from './hooks/useRoleHomeRedirect'
 import { clearStoredPendingInviteCode } from './lib/pendingInvite'
@@ -144,6 +152,48 @@ export default function App() {
       return <InstructorAccountPage onNavigate={navigate} onSignOut={handleSignOut} />
     }
 
+    if (pathname === INSTRUCTOR_FORMS_PATH) {
+      return (
+        <InstructorFormsPage
+          onBack={() => goBack(INSTRUCTOR_ACCOUNT_PATH)}
+          onNavigate={navigate}
+        />
+      )
+    }
+
+    if (pathname === INSTRUCTOR_FORM_NEW_PATH) {
+      return (
+        <InstructorFormBuilderPage
+          templateId={null}
+          onBack={() => goBack(INSTRUCTOR_FORMS_PATH)}
+          onSaved={() => goBack(INSTRUCTOR_FORMS_PATH)}
+        />
+      )
+    }
+
+    const submissionMatch = pathname.match(/^\/instructor\/forms\/submissions\/([^/]+)\/?$/)
+    if (submissionMatch?.[1]) {
+      return (
+        <InstructorSubmissionPage
+          key={submissionMatch[1]}
+          submissionId={submissionMatch[1]}
+          onBack={() => goBack(submissionBackPath(search))}
+        />
+      )
+    }
+
+    const editFormMatch = pathname.match(/^\/instructor\/forms\/([^/]+)\/edit\/?$/)
+    if (editFormMatch?.[1]) {
+      return (
+        <InstructorFormBuilderPage
+          key={editFormMatch[1]}
+          templateId={editFormMatch[1]}
+          onBack={() => goBack(INSTRUCTOR_FORMS_PATH)}
+          onSaved={() => goBack(INSTRUCTOR_FORMS_PATH)}
+        />
+      )
+    }
+
     return (
       <InstructorAgendaPage
         onNavigate={navigate}
@@ -188,6 +238,21 @@ export default function App() {
       <ParentSwimmerActivityPage
         key={parentRoute.childId}
         childId={parentRoute.childId}
+      />
+    )
+  }
+
+  if (parentRoute.kind === 'questionnaire') {
+    return (
+      <ParentQuestionnairePage
+        key={parentRoute.childId}
+        childId={parentRoute.childId}
+        onBack={() => goBack(PARENT_HOME_PATH)}
+        onFinished={() => {
+          markQuestionnaireSigned()
+          setHomeRefreshKey((key) => key + 1)
+          goBack(PARENT_HOME_PATH)
+        }}
       />
     )
   }

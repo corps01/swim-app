@@ -32,6 +32,7 @@ export function formatAppError(err: unknown): string {
 }
 
 function enrichMessage(message: string, err: SupabaseLikeError): string {
+  if (message.includes('Run docs/sql/01-core-rls.sql')) return message
   const lower = message.toLowerCase()
   if (
     err.code === '42501' ||

@@ -9,6 +9,7 @@ import {
   instructorEditClassPath,
   instructorSwimmersPath,
   instructorShareClassPath,
+  INSTRUCTOR_FORMS_PATH,
 } from '../../lib/appNavigation'
 import { Button, MaterialIcon } from '../../components/ui'
 
@@ -82,15 +83,27 @@ export function InstructorClassesPage({ onNavigate, onNewClass }: InstructorClas
       onCreateClass={onNewClass}
       wideContent
     >
-      <section className="px-margin-screen pb-stack-tight pt-stack-base">
-        <h2 className="text-headline-lg-mobile text-on-surface">Classes &amp; invites</h2>
-        <p className="text-body-md text-on-surface-variant">
-          {classesLoading
-            ? 'Loading…'
-            : classes.length === 0
-              ? 'Add a class to get a code for parents'
-              : 'Copy codes, share invites, and manage schedules'}
-        </p>
+      <section className="flex flex-col gap-3 px-margin-screen pb-stack-tight pt-stack-base sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-headline-lg-mobile text-on-surface">Classes &amp; invites</h2>
+          <p className="text-body-md text-on-surface-variant">
+            {classesLoading
+              ? 'Loading…'
+              : classes.length === 0
+                ? 'Add a class to get a code for parents'
+                : 'Copy codes, share invites, and manage schedules'}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="self-start rounded-full sm:self-auto"
+          onClick={() => onNavigate(INSTRUCTOR_FORMS_PATH)}
+        >
+          <MaterialIcon name="assignment" size={18} />
+          Questionnaires
+        </Button>
       </section>
 
       {error ? (

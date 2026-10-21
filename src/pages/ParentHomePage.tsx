@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchLatestProgressLogsByChildIds, type ProgressLog } from '../lib/api/progressLogs'
+import { fetchParentClassForms } from '../lib/api/forms'
+import type { ParentClassForm } from '../types/questionnaire'
+import { consumeQuestionnaireSigned } from '../lib/questionnaireNotice'
+import { formatAppError } from '../lib/errors'
 import { ParentShell } from '../components/navigation/ParentShell'
 import { InstructorInviteCodeBanner } from '../components/home/InstructorInviteCodeBanner'
 import { ParentHomeSwimmerCard } from '../components/home/ParentHomeSwimmerCard'
 import { useAuth } from '../hooks/useAuth'
+import { useAppPath } from '../hooks/useAppPath'
 import { useParentSwimmers } from '../hooks/useParentSwimmers'
 import { normalizeClassCodeInput } from '../lib/classCode'
 import { setStoredPendingInviteCode } from '../lib/pendingInvite'
-import { parentEnrollPath, parentSwimmerActivityPath, PARENT_HOME_PATH } from '../lib/appNavigation'
+import {
+  parentEnrollPath,
+  parentQuestionnairePath,
+  parentSwimmerActivityPath,
+  PARENT_FORM_SIGNED_PARAM,
+  PARENT_HOME_PATH,
+} from '../lib/appNavigation'
 import { swimmerHasActiveClass } from '../lib/swimmers'
 import { Button, Card, MaterialIcon } from '../components/ui'
 
@@ -28,11 +39,58 @@ function startEnrollWithInvite(code: string, onNavigate: (path: string) => void)
 
 export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProps) {
   const { user } = useAuth()
+  const { search, replace } = useAppPath()
   const parentId = user?.id
   const { swimmers, loading, error, refresh } = useParentSwimmers(parentId)
   const [inviteCode, setInviteCode] = useState('')
   const [latestByChild, setLatestByChild] = useState<Map<string, ProgressLog>>(new Map())
   const [activityLoading, setActivityLoading] = useState(false)
+  const [formsByChildClass, setFormsByChildClass] = useState<Map<string, ParentClassForm[]>>(new Map())
+  const [formError, setFormError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fromQuery = new URLSearchParams(search).get(PARENT_FORM_SIGNED_PARAM) === '1'
+    const fromStore = consumeQuestionnaireSigned()
+    if (!fromQuery && !fromStore) return
+    setToast('Questionnaire signed.')
+    if (fromQuery) replace(PARENT_HOME_PATH)
+  }, [search, replace])
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = window.setTimeout(() => setToast(null), 2800)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
+  useEffect(() => {
+    const pairs = swimmers.flatMap((swimmer) =>
+      swimmer.enrollments.flatMap((enrollment) =>
+        enrollment.classId ? [{ childId: swimmer.id, classId: enrollment.classId }] : [],
+      ),
+    )
+    if (pairs.length === 0) {
+      setFormsByChildClass(new Map())
+      setFormError(null)
+      return
+    }
+    let cancelled = false
+    void fetchParentClassForms(pairs)
+      .then((forms) => {
+        if (cancelled) return
+        setFormsByChildClass(forms)
+        setFormError(null)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setFormsByChildClass(new Map())
+          setFormError(formatAppError(err))
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [swimmers])
 
   useEffect(() => {
     const ids = swimmers.map((row) => row.id)
@@ -126,12 +184,12 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
           onJoin={handleJoinFromBanner}
         />
 
-        {error ? (
+        {error || formError ? (
           <p
             role="alert"
             className="rounded-2xl bg-error-container px-3 py-2 text-body-sm text-on-error-container"
           >
-            {error}
+            {error ?? formError}
           </p>
         ) : null}
 
@@ -187,6 +245,10 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
                       onEdit={() => onEditSwimmer(swimmer.id)}
                       onViewActivity={() => onNavigate(parentSwimmerActivityPath(swimmer.id))}
                       onEnrollmentChanged={() => void refresh()}
+                      formsByChildClass={formsByChildClass}
+                      onOpenQuestionnaire={(classId, templateId) =>
+                        onNavigate(parentQuestionnairePath(swimmer.id, classId, templateId))
+                      }
                     />
                   </li>
                 ))}
@@ -206,6 +268,16 @@ export function ParentHomePage({ onNavigate, onEditSwimmer }: ParentHomePageProp
           )}
         </section>
       </div>
+
+      {toast ? (
+        <div
+          className="pointer-events-none fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-on-surface/95 px-4 py-2.5 text-label-sm font-semibold text-surface-container-lowest shadow-lg backdrop-blur md:bottom-8"
+          role="status"
+        >
+          <MaterialIcon name="check_circle" size={16} className="text-secondary-container" filled />
+          {toast}
+        </div>
+      ) : null}
     </ParentShell>
   )
 }

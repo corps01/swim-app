@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  fetchSwimmerFormCompliance,
+  formComplianceKey,
+} from '../../lib/api/forms'
+import type { SwimmerFormCompliance } from '../../types/questionnaire'
 import { InstructorShell } from '../../components/navigation/InstructorShell'
 import {
   InstructorSwimmersToolbar,
@@ -16,6 +21,7 @@ import { useInstructorSwimmers } from '../../hooks/useInstructorSwimmers'
 import {
   INSTRUCTOR_SWIMMERS_PATH,
   instructorProgressLogPath,
+  instructorSubmissionPath,
   instructorSwimmersPath,
   parseInstructorSwimmersClassId,
 } from '../../lib/appNavigation'
@@ -47,11 +53,33 @@ export function InstructorSwimmersPage({ onNavigate }: InstructorSwimmersPagePro
 
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<SwimmerListFilter>('all')
+  const [complianceByKey, setComplianceByKey] = useState<Map<string, SwimmerFormCompliance>>(new Map())
 
   useEffect(() => {
     setSearch('')
     setActiveFilter('all')
   }, [classIdFromUrl])
+
+  useEffect(() => {
+    const pairs = swimmers.flatMap((entry) =>
+      entry.classId ? [{ childId: entry.childId, classId: entry.classId }] : [],
+    )
+    if (pairs.length === 0) {
+      setComplianceByKey(new Map())
+      return
+    }
+    let cancelled = false
+    void fetchSwimmerFormCompliance(pairs)
+      .then((next) => {
+        if (!cancelled) setComplianceByKey(next)
+      })
+      .catch(() => {
+        if (!cancelled) setComplianceByKey(new Map())
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [swimmers])
 
   const enriched = useMemo(
     () =>
@@ -182,6 +210,15 @@ export function InstructorSwimmersPage({ onNavigate }: InstructorSwimmersPagePro
                 <InstructorSwimmerCard
                   entry={entry}
                   displayStatus={displayStatus}
+                  formCompliance={
+                    entry.classId ? (complianceByKey.get(formComplianceKey(entry.childId, entry.classId)) ?? null) : null
+                  }
+                  onOpenSubmission={() => {
+                    const submissionId = entry.classId
+                      ? complianceByKey.get(formComplianceKey(entry.childId, entry.classId))?.submissionId
+                      : null
+                    if (submissionId) onNavigate(instructorSubmissionPath(submissionId, { from: 'swimmers' }))
+                  }}
                   onLogProgress={() =>
                     onNavigate(
                       instructorProgressLogPath({

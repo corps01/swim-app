@@ -25,6 +25,7 @@ If those tables are missing, create them in the Table Editor or from your origin
 | **4** | [`04-class-schedule-rpcs.sql`](./04-class-schedule-rpcs.sql) | `create_class_with_schedule`, `update_class_with_schedule`, transactional `schedule_details` formatting |
 | **5** | [`05-progress-logs.sql`](./05-progress-logs.sql) | `progress_logs` table, RLS, `progress-photos` storage bucket |
 | **6** | [`06-progress-cheers.sql`](./06-progress-cheers.sql) | Parent cheers on a progress log (one per parent) |
+| **7** | [`07-questionnaire-engine.sql`](./07-questionnaire-engine.sql) | Question bank, form templates, class forms, parent submissions, and `save_form_template` |
 
 Scripts are **idempotent** (`CREATE OR REPLACE`, `DROP POLICY IF EXISTS`, `IF NOT EXISTS`). Safe to re-run after a partial failure.
 
@@ -55,6 +56,13 @@ SELECT proname FROM pg_proc WHERE proname = 'get_instructor_agenda';
 SELECT proname FROM pg_proc
 WHERE proname IN ('create_class_with_schedule', 'update_class_with_schedule');
 
+-- Forms (after step 7)
+SELECT to_regclass('public.question_bank');
+SELECT question_text, input_type FROM public.question_bank
+WHERE instructor_id IS NULL
+ORDER BY question_text;
+SELECT proname FROM pg_proc WHERE proname = 'save_form_template';
+
 -- Example: Wednesday 4:00–4:45 PM for a class (ISODOW 3 = Wednesday)
 -- INSERT INTO public.class_schedule_rules (class_id, day_of_week, start_time, end_time, location_detail)
 -- VALUES ('<class-uuid>', 3, '16:00', '16:45', 'Lane 3');
@@ -69,5 +77,6 @@ WHERE proname IN ('create_class_with_schedule', 'update_class_with_schedule');
 | `03-schedules.sql` | Structured schedules, pool timezone, instructor agenda RPC |
 | `05-progress-logs.sql` | Instructor progress notes/photos for parents |
 | `06-progress-cheers.sql` | Parent cheer on a progress update |
+| `07-questionnaire-engine.sql` | Question bank, templates, class forms, submissions |
 
 Legacy files at `docs/supabase-*.sql` were removed; use this folder only.

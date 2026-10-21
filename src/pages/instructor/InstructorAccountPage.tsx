@@ -1,5 +1,6 @@
 import { InstructorShell } from '../../components/navigation/InstructorShell'
 import { useAuth } from '../../hooks/useAuth'
+import { INSTRUCTOR_FORMS_PATH } from '../../lib/appNavigation'
 import { Button, Card, MaterialIcon } from '../../components/ui'
 
 interface InstructorAccountPageProps {
@@ -40,6 +41,17 @@ export function InstructorAccountPage({ onNavigate, onSignOut }: InstructorAccou
             </p>
           </div>
         </Card>
+
+        <Button
+          type="button"
+          variant="secondary"
+          fullWidth
+          className="rounded-2xl"
+          onClick={() => onNavigate(INSTRUCTOR_FORMS_PATH)}
+        >
+          <MaterialIcon name="assignment" size={18} />
+          Questionnaires
+        </Button>
 
         <Button type="button" variant="secondary" fullWidth className="rounded-2xl" onClick={onSignOut}>
           Sign out

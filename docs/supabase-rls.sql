@@ -7,5 +7,6 @@
 --   4. docs/sql/04-class-schedule-rpcs.sql
 --   5. docs/sql/05-progress-logs.sql
 --   6. docs/sql/06-progress-cheers.sql
+--   7. docs/sql/07-questionnaire-engine.sql
 --
 -- See docs/sql/README.md

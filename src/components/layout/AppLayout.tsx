@@ -6,6 +6,8 @@ export interface AppLayoutProps {
   title?: string
   subtitle?: string
   onBack?: () => void
+  backLabel?: string
+  wide?: boolean
   onSignOut?: () => void
   variant?: 'auth' | 'flow'
 }
@@ -15,6 +17,8 @@ export function AppLayout({
   title = 'SplashPass',
   subtitle,
   onBack,
+  backLabel,
+  wide = false,
   onSignOut,
   variant = 'flow',
 }: AppLayoutProps) {
@@ -23,7 +27,7 @@ export function AppLayout({
       className={
         variant === 'auth'
           ? 'relative mx-auto my-auto w-full max-w-md py-8'
-          : 'mx-auto w-full max-w-md py-6'
+          : `mx-auto w-full py-6 ${wide ? 'max-w-4xl' : 'max-w-md'}`
       }
     >
       <div className="relative">{children}</div>
@@ -40,7 +44,14 @@ export function AppLayout({
 
   return (
     <div className="flex min-h-svh flex-col bg-surface text-on-surface">
-      <Navbar title={title} subtitle={subtitle} onBack={onBack} onSignOut={onSignOut} />
+      <Navbar
+        title={title}
+        subtitle={subtitle}
+        onBack={onBack}
+        backLabel={backLabel}
+        wide={wide}
+        onSignOut={onSignOut}
+      />
       <main className="flex-1 px-margin-screen pb-safe">{content}</main>
     </div>
   )

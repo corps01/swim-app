@@ -121,3 +121,35 @@ html:not(.fonts-ready) .material-symbols-outlined {
     animation: none;
   }
 }
+
+@media print {
+  @page {
+    margin: 0.6in;
+  }
+
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #root {
+    background: #fff !important;
+  }
+
+  .submission-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+  }
+
+  .submission-signature {
+    break-inside: avoid;
+  }
+
+  .submission-signature img {
+    max-height: 2.2in;
+    object-fit: contain;
+  }
+}

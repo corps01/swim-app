@@ -1,13 +1,17 @@
 import type { InstructorSwimmerEntry } from '../../lib/api/instructorSwimmers'
+import type { SwimmerFormCompliance } from '../../types/questionnaire'
 import { cn } from '../../lib/cn'
 import { MaterialIcon } from '../ui'
+import { FormComplianceBadge } from './FormComplianceBadge'
 
 export type SwimmerFormStatus = 'completed' | 'missing' | 'issues'
 
 interface InstructorSwimmerCardProps {
   entry: InstructorSwimmerEntry
   displayStatus: SwimmerFormStatus
+  formCompliance?: SwimmerFormCompliance | null
   onLogProgress: () => void
+  onOpenSubmission?: () => void
 }
 
 function initials(first: string, last: string) {
@@ -19,7 +23,13 @@ export function swimmerFormDisplayStatus(status: InstructorSwimmerEntry['status'
   return 'missing'
 }
 
-export function InstructorSwimmerCard({ entry, displayStatus, onLogProgress }: InstructorSwimmerCardProps) {
+export function InstructorSwimmerCard({
+  entry,
+  displayStatus,
+  formCompliance,
+  onLogProgress,
+  onOpenSubmission,
+}: InstructorSwimmerCardProps) {
   const fullName = `${entry.firstName} ${entry.lastName}`
   const isCompleted = displayStatus === 'completed'
   const isMissing = displayStatus === 'missing'
@@ -59,7 +69,19 @@ export function InstructorSwimmerCard({ entry, displayStatus, onLogProgress }: I
           <div className="flex min-w-0 flex-col">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="truncate text-headline-sm text-on-surface">{fullName}</h3>
-              <StatusBadge status={displayStatus} />
+              {formCompliance ? (
+                <FormComplianceBadge
+                  status={formCompliance.status}
+                  swimmerName={fullName}
+                  onOpen={
+                    formCompliance.status === 'signed' && formCompliance.submissionId
+                      ? onOpenSubmission
+                      : undefined
+                  }
+                />
+              ) : (
+                <StatusBadge status={displayStatus} />
+              )}
             </div>
 
             {displayStatus === 'issues' ? (
