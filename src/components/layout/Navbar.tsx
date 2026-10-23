@@ -11,7 +11,7 @@ export interface NavbarProps {
   onSignOut?: () => void
 }
 
-export function Navbar({ title, subtitle, onBack, backLabel, wide = false, onSignOut }: NavbarProps) {
+export function Navbar({ title, subtitle, onBack, backLabel = '← Back', wide = false, onSignOut }: NavbarProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-outline-variant/40 bg-surface/90 px-margin-screen pt-safe backdrop-blur-md print:hidden">
       <div className={`mx-auto flex w-full items-center justify-between gap-4 py-3 ${wide ? 'max-w-4xl' : 'max-w-md'}`}>
@@ -20,11 +20,7 @@ export function Navbar({ title, subtitle, onBack, backLabel, wide = false, onSig
             <button
               type="button"
               onClick={onBack}
-              className={
-                backLabel
-                  ? 'inline-flex h-11 shrink-0 items-center gap-1 rounded-full bg-surface-container-low px-3 text-label-md text-on-surface transition-colors active:scale-[0.97] hover:bg-surface-container'
-                  : 'flex size-11 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface transition-colors active:scale-[0.97] hover:bg-surface-container'
-              }
+              className="inline-flex h-11 shrink-0 items-center gap-1 rounded-full bg-surface-container-low px-3 text-label-md text-on-surface transition-colors active:scale-[0.97] hover:bg-surface-container"
             >
               {backLabel ? (
                 <span>{backLabel}</span>

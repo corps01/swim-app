@@ -14,6 +14,15 @@ export async function fetchProfile(userId: string) {
   return data
 }
 
+export async function updateOwnPhone(userId: string, phone: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('profiles')
+    .update({ phone: phone.trim() || null })
+    .eq('id', userId)
+  if (error) throw new Error(formatAppError(error))
+}
+
 export async function upsertProfile(userId: string, fullName: string, role: UserRole) {
   const supabase = getSupabaseClient()
   const row = {

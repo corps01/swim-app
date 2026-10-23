@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Swim App</string>
+    <string name="title_activity_main">Swim App</string>
+    <string name="package_name">com.swimapp.app</string>
+    <string name="custom_url_scheme">com.swimapp.app</string>
+</resources>

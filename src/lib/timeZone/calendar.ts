@@ -52,6 +52,13 @@ function parseDateKey(dateKey: string): { year: number; month: number; day: numb
   return { year, month, day }
 }
 
+/** ISO weekday for a calendar date key: 1 = Monday … 7 = Sunday. */
+export function isoWeekdayFromDateKey(dateKey: string): number {
+  const { year, month, day } = parseDateKey(dateKey)
+  const weekday = new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay()
+  return weekday === 0 ? 7 : weekday
+}
+
 /** Add whole calendar days to a date key, stepping in `timeZone`. */
 export function addCalendarDays(dateKey: string, days: number, timeZone: string): string {
   if (days <= 0) return dateKey

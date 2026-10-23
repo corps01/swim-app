@@ -1,16 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { InstructorShell } from '../../components/navigation/InstructorShell'
 import { InstructorClassCard } from '../../components/instructor/InstructorClassCard'
 import { useAuth } from '../../hooks/useAuth'
 import { useInstructorClasses } from '../../hooks/useInstructorClasses'
 import { useInstructorSwimmers } from '../../hooks/useInstructorSwimmers'
 import { fetchClassSeasonRanges, type ClassSeasonRange } from '../../lib/api/classSchedule'
-import {
-  instructorEditClassPath,
-  instructorSwimmersPath,
-  instructorShareClassPath,
-  INSTRUCTOR_FORMS_PATH,
-} from '../../lib/appNavigation'
+import { instructorClassDetailPath } from '../../lib/appNavigation'
 import { Button, MaterialIcon } from '../../components/ui'
 
 interface InstructorClassesPageProps {
@@ -19,8 +14,6 @@ interface InstructorClassesPageProps {
 }
 
 export function InstructorClassesPage({ onNavigate, onNewClass }: InstructorClassesPageProps) {
-  const [toast, setToast] = useState<string | null>(null)
-
   const { user } = useAuth()
   const instructorId = user?.id
   const instructorName = user?.fullName ?? 'Coach'
@@ -59,21 +52,6 @@ export function InstructorClassesPage({ onNavigate, onNewClass }: InstructorClas
     return map
   }, [allSwimmers, classes])
 
-  const copyClassCode = useCallback(async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code)
-      setToast('Class code copied!')
-    } catch {
-      setToast('Could not copy — tap the code and copy manually.')
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 2600)
-    return () => window.clearTimeout(timer)
-  }, [toast])
-
   return (
     <InstructorShell
       activeTab="classes"
@@ -91,19 +69,9 @@ export function InstructorClassesPage({ onNavigate, onNewClass }: InstructorClas
               ? 'Loading…'
               : classes.length === 0
                 ? 'Add a class to get a code for parents'
-                : 'Copy codes, share invites, and manage schedules'}
+                : 'Open a class to share its code, edit the schedule, or assign a form'}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="self-start rounded-full sm:self-auto"
-          onClick={() => onNavigate(INSTRUCTOR_FORMS_PATH)}
-        >
-          <MaterialIcon name="assignment" size={18} />
-          Questionnaires
-        </Button>
       </section>
 
       {error ? (
@@ -137,24 +105,11 @@ export function InstructorClassesPage({ onNavigate, onNewClass }: InstructorClas
               hasScheduleRules={seasonByClassId.has(classRow.id)}
               seasonStart={seasonByClassId.get(classRow.id)?.seasonStart ?? null}
               seasonEnd={seasonByClassId.get(classRow.id)?.seasonEnd ?? null}
-              onCopyCode={(code) => void copyClassCode(code)}
-              onViewSwimmers={() => onNavigate(instructorSwimmersPath(classRow.id))}
-              onShare={() => onNavigate(instructorShareClassPath(classRow.id))}
-              onEditSchedule={() => onNavigate(instructorEditClassPath(classRow.id))}
+              onOpenDetails={() => onNavigate(instructorClassDetailPath(classRow.id, { from: 'classes' }))}
             />
           ))
         )}
       </section>
-
-      {toast ? (
-        <div
-          className="pointer-events-none fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-on-surface/95 px-4 py-2.5 text-label-sm font-semibold text-surface-container-lowest shadow-lg backdrop-blur md:bottom-8"
-          role="status"
-        >
-          <MaterialIcon name="check_circle" size={16} className="text-secondary-container" filled />
-          {toast}
-        </div>
-      ) : null}
     </InstructorShell>
   )
 }

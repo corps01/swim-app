@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "85393293519",
+    "project_id": "swim-app-cc6be",
+    "storage_bucket": "swim-app-cc6be.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:85393293519:android:349a9e8d7ef787786737ba",
+        "android_client_info": {
+          "package_name": "swim.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCD5XvZ0G0Zafcy4iT3iHPpWQORYNKLxyc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

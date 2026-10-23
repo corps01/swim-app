@@ -26,6 +26,10 @@ If those tables are missing, create them in the Table Editor or from your origin
 | **5** | [`05-progress-logs.sql`](./05-progress-logs.sql) | `progress_logs` table, RLS, `progress-photos` storage bucket |
 | **6** | [`06-progress-cheers.sql`](./06-progress-cheers.sql) | Parent cheers on a progress log (one per parent) |
 | **7** | [`07-questionnaire-engine.sql`](./07-questionnaire-engine.sql) | Question bank, form templates, class forms, parent submissions, and `save_form_template` |
+| **8** | [`08-notification-preferences.sql`](./08-notification-preferences.sql) | Per-user notification preferences (`notify_before_hours`, push, daily summary, frequency) with own-row RLS and default rows for new profiles |
+| **9** | [`09-push-reminders.sql`](./09-push-reminders.sql) | `profiles.onesignal_player_id` and `form_reminders_log` (`pending` / `sent` / `failed`) for the BUDS reminder Edge Function |
+| **10** | [`10-buds-fitness.sql`](./10-buds-fitness.sql) | Daily BUDS `session_date`, parent update of that day's check-in, `buds_deck_overrides.deck_override_by`, and fitness intake questions |
+| **11** | [`11-attendance.sql`](./11-attendance.sql) | Deck attendance in `attendance_logs` (present / absent per swimmer, class, and day) |
 
 Scripts are **idempotent** (`CREATE OR REPLACE`, `DROP POLICY IF EXISTS`, `IF NOT EXISTS`). Safe to re-run after a partial failure.
 
@@ -61,6 +65,8 @@ SELECT to_regclass('public.question_bank');
 SELECT question_text, input_type FROM public.question_bank
 WHERE instructor_id IS NULL
 ORDER BY question_text;
+-- ISR Daily BUDS bank: expect 23 rows after script 10 (18 interview + 5 fitness)
+SELECT count(*) FROM public.question_bank WHERE category = 'isr_buds';
 SELECT proname FROM pg_proc WHERE proname = 'save_form_template';
 
 -- Example: Wednesday 4:00–4:45 PM for a class (ISODOW 3 = Wednesday)
@@ -78,5 +84,9 @@ SELECT proname FROM pg_proc WHERE proname = 'save_form_template';
 | `05-progress-logs.sql` | Instructor progress notes/photos for parents |
 | `06-progress-cheers.sql` | Parent cheer on a progress update |
 | `07-questionnaire-engine.sql` | Question bank, templates, class forms, submissions |
+| `08-notification-preferences.sql` | Notification preferences with defaults and own-row RLS |
+| `09-push-reminders.sql` | OneSignal subscription id and BUDS reminder dispatch log |
+| `10-buds-fitness.sql` | Daily BUDS rows and instructor verbal deck clearance |
+| `11-attendance.sql` | Instructor deck attendance synced per class day |
 
 Legacy files at `docs/supabase-*.sql` were removed; use this folder only.

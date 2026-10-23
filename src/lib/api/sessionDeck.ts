@@ -1,11 +1,13 @@
 import type { ChildInstructorStatus } from '../../types/database'
 import { throwIfSupabaseError } from '../errors'
 import { getSupabaseClient } from '../supabase'
+import { POOL_TIMEZONE_API_FALLBACK } from '../timeZone/pool'
 
 export interface SessionDeckSwimmer {
   childId: string
   firstName: string
   lastName: string
+  dateOfBirth: string | null
   notes: string
   parentName: string
   parentPhone: string | null
@@ -18,6 +20,8 @@ export interface SessionDeckClassMeta {
   name: string
   location: string | null
   scheduleDetails: string | null
+  classCode: string
+  timezone: string
 }
 
 export async function fetchSessionDeckSwimmers(classId: string): Promise<SessionDeckSwimmer[]> {
@@ -48,7 +52,7 @@ export async function fetchSessionDeckSwimmers(classId: string): Promise<Session
 
   const { data: children, error: childrenError } = await supabase
     .from('children')
-    .select('id, first_name, last_name, notes')
+    .select('id, first_name, last_name, date_of_birth, notes')
     .in('id', childIds)
 
   throwIfSupabaseError(childrenError)
@@ -93,6 +97,7 @@ export async function fetchSessionDeckSwimmers(classId: string): Promise<Session
         childId: child.id,
         firstName: child.first_name,
         lastName: child.last_name,
+        dateOfBirth: typeof child.date_of_birth === 'string' ? child.date_of_birth : null,
         notes,
         parentName: parent?.name ?? 'Parent',
         parentPhone: parent?.phone ?? null,
@@ -107,7 +112,7 @@ export async function fetchSessionDeckClass(classId: string): Promise<SessionDec
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('classes')
-    .select('id, name, location, schedule_details')
+    .select('id, name, location, schedule_details, class_code, timezone')
     .eq('id', classId)
     .maybeSingle()
 
@@ -118,5 +123,7 @@ export async function fetchSessionDeckClass(classId: string): Promise<SessionDec
     name: data.name,
     location: data.location,
     scheduleDetails: data.schedule_details,
+    classCode: data.class_code,
+    timezone: typeof data.timezone === 'string' && data.timezone ? data.timezone : POOL_TIMEZONE_API_FALLBACK,
   }
 }

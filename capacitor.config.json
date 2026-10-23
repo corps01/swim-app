@@ -1,0 +1,8 @@
+{
+  "appId": "com.swimapp.app",
+  "appName": "Swim App",
+  "webDir": "dist",
+  "android": {
+    "path": "android"
+  }
+}

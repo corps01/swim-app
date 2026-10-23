@@ -13,7 +13,7 @@ import {
   type SwimmerClassEnrollment,
   type SwimmerRosterEntry,
 } from '../../lib/swimmers'
-import { Badge, Button, Input, MaterialIcon } from '../../components/ui'
+import { Badge, Button, Input, MaterialIcon, ProfileAvatar } from '../../components/ui'
 
 const NOTES_MAX = 300
 
@@ -204,9 +204,7 @@ export function EditSwimmerPage({ childId, onBack, onSaved, onSignOut }: EditSwi
 
         <div className="flex flex-col items-center rounded-3xl bg-surface-container-lowest p-stack-base text-center shadow-[0_4px_16px_-2px_rgba(8,145,178,0.08)]">
           <div className="relative mb-3">
-            <div className="flex size-24 items-center justify-center rounded-full bg-primary-fixed text-headline-md font-bold text-on-primary-fixed-variant">
-              {swimmer.firstName.charAt(0)}{swimmer.lastName.charAt(0)}
-            </div>
+            <ProfileAvatar firstName={swimmer.firstName} lastName={swimmer.lastName} size="2xl" />
             <Badge tone="neutral" className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap">
               Photo — Coming soon
             </Badge>

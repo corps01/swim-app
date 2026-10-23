@@ -14,6 +14,19 @@ export function formatProgressLogWhen(iso: string): { dateLine: string; timeLine
   return { dateLine, timeLine }
 }
 
+/** First line or sentence is the headline. The rest is supporting copy. */
+export function splitProgressNote(note: string | null | undefined): { title: string; body: string } {
+  const trimmed = note?.trim() ?? ''
+  if (!trimmed) return { title: '', body: '' }
+  const breakAt = trimmed.search(/\n/)
+  if (breakAt > 0) {
+    return { title: trimmed.slice(0, breakAt).trim(), body: trimmed.slice(breakAt).trim() }
+  }
+  const sentence = trimmed.match(/^(.{16,90}?[.!?])\s+([\s\S]+)$/)
+  if (sentence?.[1] && sentence[2]) return { title: sentence[1], body: sentence[2].trim() }
+  return { title: trimmed, body: '' }
+}
+
 export function formatLatestActivitySnippet(log: ProgressLog): string {
   const when = new Date(log.createdAt)
   const relative = formatRelativeDay(when)

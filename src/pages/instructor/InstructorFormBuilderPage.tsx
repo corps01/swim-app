@@ -11,7 +11,13 @@ import {
 } from '../../lib/api/forms'
 import type { FormClassLink, FormInputType, QuestionBankItem } from '../../types/questionnaire'
 import { useAuth } from '../../hooks/useAuth'
-import { categoryLabel, compareCategories, DEFAULT_QUESTION_CATEGORIES, inputTypeLabel } from '../../lib/formQuestions'
+import {
+  categoryLabel,
+  compareBankQuestions,
+  compareCategories,
+  DEFAULT_QUESTION_CATEGORIES,
+  inputTypeLabel,
+} from '../../lib/formQuestions'
 import { formatAppError } from '../../lib/errors'
 import { cn } from '../../lib/cn'
 import type { SwimClass } from '../../types/class'
@@ -116,21 +122,33 @@ export function InstructorFormBuilderPage({ templateId, onBack, onSaved }: Instr
       categoryFilter === 'all'
         ? questions
         : questions.filter((question) => question.category === categoryFilter)
-    return [...rows].sort((a, b) => {
-      const byCategory = compareCategories(a.category, b.category)
-      if (byCategory !== 0) return byCategory
-      return a.questionText.localeCompare(b.questionText)
-    })
+    return [...rows].sort(compareBankQuestions)
   }, [categoryFilter, questions])
 
   const selectedIds = useMemo(() => new Set(selected.map((row) => row.questionId)), [selected])
+
+  const unaddedInFilter = useMemo(
+    () => (categoryFilter === 'all' ? [] : visibleBank.filter((question) => !selectedIds.has(question.id))),
+    [categoryFilter, selectedIds, visibleBank],
+  )
 
   function toggleQuestion(questionId: string) {
     setSelected((current) => {
       if (current.some((row) => row.questionId === questionId)) {
         return current.filter((row) => row.questionId !== questionId)
       }
-      return [...current, { questionId, isRequired: true }]
+      const question = questionsById.get(questionId)
+      return [...current, { questionId, isRequired: question?.requiredByDefault ?? true }]
+    })
+  }
+
+  function addAllInFilter() {
+    setSelected((current) => {
+      const have = new Set(current.map((row) => row.questionId))
+      const additions = unaddedInFilter
+        .filter((question) => !have.has(question.id))
+        .map((question) => ({ questionId: question.id, isRequired: question.requiredByDefault }))
+      return [...current, ...additions]
     })
   }
 
@@ -368,6 +386,18 @@ export function InstructorFormBuilderPage({ templateId, onBack, onSaved }: Instr
                   />
                 ))}
               </div>
+              {unaddedInFilter.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  className="self-start rounded-full"
+                  onClick={addAllInFilter}
+                >
+                  <MaterialIcon name="playlist_add" size={20} />
+                  Add all {unaddedInFilter.length} to this form
+                </Button>
+              ) : null}
               {visibleBank.length === 0 ? (
                 <p className="text-body-sm text-on-surface-variant">No questions in this category yet.</p>
               ) : (

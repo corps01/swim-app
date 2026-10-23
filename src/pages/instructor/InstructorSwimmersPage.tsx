@@ -20,8 +20,10 @@ import { useInstructorClasses } from '../../hooks/useInstructorClasses'
 import { useInstructorSwimmers } from '../../hooks/useInstructorSwimmers'
 import {
   INSTRUCTOR_SWIMMERS_PATH,
+  instructorClassDetailPath,
   instructorProgressLogPath,
   instructorSubmissionPath,
+  instructorSwimmerPath,
   instructorSwimmersPath,
   parseInstructorSwimmersClassId,
 } from '../../lib/appNavigation'
@@ -217,14 +219,41 @@ export function InstructorSwimmersPage({ onNavigate }: InstructorSwimmersPagePro
                     const submissionId = entry.classId
                       ? complianceByKey.get(formComplianceKey(entry.childId, entry.classId))?.submissionId
                       : null
-                    if (submissionId) onNavigate(instructorSubmissionPath(submissionId, { from: 'swimmers' }))
+                    if (submissionId) {
+                      onNavigate(
+                        instructorSubmissionPath(submissionId, {
+                          from: 'swimmers',
+                          classId: classIdFromUrl,
+                        }),
+                      )
+                    }
                   }}
+                  onOpen={() =>
+                    onNavigate(
+                      instructorSwimmerPath(entry.childId, {
+                        from: classIdFromUrl ? instructorSwimmersPath(classIdFromUrl) : INSTRUCTOR_SWIMMERS_PATH,
+                      }),
+                    )
+                  }
+                  onOpenClass={
+                    entry.classId
+                      ? () => onNavigate(instructorClassDetailPath(entry.classId!, { from: 'swimmers' }))
+                      : undefined
+                  }
                   onLogProgress={() =>
                     onNavigate(
                       instructorProgressLogPath({
                         childId: entry.childId,
                         classId: entry.classId ?? classIdFromUrl,
                         from: 'swimmers',
+                      }),
+                    )
+                  }
+                  onOpenHistory={() =>
+                    onNavigate(
+                      instructorSwimmerPath(entry.childId, {
+                        tab: 'health',
+                        from: classIdFromUrl ? instructorSwimmersPath(classIdFromUrl) : INSTRUCTOR_SWIMMERS_PATH,
                       }),
                     )
                   }

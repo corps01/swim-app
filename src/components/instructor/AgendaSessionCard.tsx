@@ -1,7 +1,7 @@
 import type { AgendaSession, AgendaSwimmerSummary } from '../../lib/api/agenda'
 import type { SessionTimingBadge } from '../../lib/agendaSessionTiming'
 import { formatTime12h, formatTimeRange12h } from '../../lib/classSchedule'
-import { MaterialIcon } from '../ui'
+import { Badge, MaterialIcon } from '../ui'
 import { cn } from '../../lib/cn'
 
 function locationBadge(session: AgendaSession): string {
@@ -11,31 +11,10 @@ function locationBadge(session: AgendaSession): string {
 }
 
 function TimingPill({ badge }: { badge: SessionTimingBadge }) {
-  if (badge === 'next_up') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2.5 py-1 text-label-sm font-bold text-on-secondary-container">
-        <MaterialIcon name="alarm" size={14} />
-        Next up
-      </span>
-    )
-  }
-  if (badge === 'in_session') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2.5 py-1 text-label-sm font-bold text-on-secondary-container">
-        <MaterialIcon name="play_circle" size={14} />
-        In session
-      </span>
-    )
-  }
-
-  const label =
-    badge === 'morning' ? 'Morning' : badge === 'evening' ? 'Evening' : 'Later'
-
-  return (
-    <span className="rounded-full bg-surface-container-high px-2.5 py-1 text-label-sm font-semibold text-on-surface-variant">
-      {label}
-    </span>
-  )
+  if (badge === 'next_up') return <Badge tone="success">Next up</Badge>
+  if (badge === 'in_session') return <Badge tone="primary" pulse>In session</Badge>
+  const label = badge === 'morning' ? 'Morning' : badge === 'evening' ? 'Evening' : 'Later'
+  return <Badge tone="neutral">{label}</Badge>
 }
 
 function SwimmerDeckChip({ swimmer }: { swimmer: AgendaSwimmerSummary }) {
@@ -74,14 +53,16 @@ interface AgendaSessionCardProps {
   session: AgendaSession
   timingBadge: SessionTimingBadge
   emphasize?: boolean
-  onOpen: () => void
+  onOpenDetails: () => void
+  onOpenDeck: () => void
 }
 
 export function AgendaSessionCard({
   session,
   timingBadge,
   emphasize = false,
-  onOpen,
+  onOpenDetails,
+  onOpenDeck,
 }: AgendaSessionCardProps) {
   const duration =
     session.durationMinutes != null && session.durationMinutes > 0
@@ -101,7 +82,12 @@ export function AgendaSessionCard({
           : 'shadow-[0_4px_16px_-2px_rgba(8,145,178,0.08),0_2px_6px_-1px_rgba(15,23,42,0.04)]',
       )}
     >
-      <button type="button" className="w-full text-left" onClick={onOpen}>
+      <button
+        type="button"
+        className="w-full text-left"
+        aria-label={`Open deck for ${session.className}`}
+        onClick={onOpenDeck}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <TimingPill badge={timingBadge} />
@@ -168,10 +154,10 @@ export function AgendaSessionCard({
           className="inline-flex shrink-0 items-center gap-1 text-label-md font-bold text-primary"
           onClick={(event) => {
             event.stopPropagation()
-            onOpen()
+            onOpenDetails()
           }}
         >
-          Open deck mode
+          Class details
           <MaterialIcon name="arrow_forward" size={18} />
         </button>
       </div>

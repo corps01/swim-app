@@ -8,6 +8,8 @@ export const env = {
   supabaseUrl: read('SUPABASE_URL'),
   supabaseAnonKey: read('SUPABASE_ANON_KEY'),
   publicAppUrl: read('VITE_PUBLIC_APP_URL'),
+  /** Public OneSignal App ID. The REST API key stays in Supabase secrets. */
+  oneSignalAppId: read('ONESIGNAL_APP_ID'),
 } as const
 
 /** Canonical app origin for invite links / QR (falls back to current browser origin). */

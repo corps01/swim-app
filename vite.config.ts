@@ -28,7 +28,7 @@ function stylesheetBeforeScript(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), stylesheetBeforeScript()],
-  envPrefix: 'SUPABASE_',
+  envPrefix: ['SUPABASE_', 'ONESIGNAL_APP_ID'],
   server: {
     host: true,
     port: 5173,

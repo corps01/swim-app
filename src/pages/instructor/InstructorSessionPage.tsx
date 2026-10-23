@@ -1,38 +1,39 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { DeckSwimmerCard } from '../../components/instructor/DeckSwimmerCard'
+import { DeckRoster, type DeckRosterFilter } from './DeckRoster'
 import { useAppPath } from '../../hooks/useAppPath'
+import { useAuth } from '../../hooks/useAuth'
 import { fetchInstructorAgenda, type AgendaSession } from '../../lib/api/agenda'
 import { fetchSessionDeckClass, fetchSessionDeckSwimmers, type SessionDeckSwimmer } from '../../lib/api/sessionDeck'
 import { formatTimeRange12h } from '../../lib/classSchedule'
 import { formatAppError } from '../../lib/errors'
 import {
   INSTRUCTOR_HOME_PATH,
+  instructorBackTarget,
   instructorProgressLogPath,
+  instructorSessionPath,
   instructorShareClassPath,
-  instructorSubmissionPath,
+  instructorSwimmerPath,
 } from '../../lib/appNavigation'
 import {
   fetchSwimmerFormCompliance,
   formComplianceKey,
 } from '../../lib/api/forms'
+import { fetchDeckFitness, recordDeckVerbalClearance, type DeckFitness } from '../../lib/api/budsClearance'
+import { attendanceTableMissing, loadSessionAttendance, persistAttendanceMark } from '../../lib/api/attendance'
 import type { SwimmerFormCompliance } from '../../types/questionnaire'
 import {
   countAttendance,
-  cycleAttendanceMark,
-  getAttendanceMap,
-  setAttendanceMark,
+  replaceAttendanceMap,
   type AttendanceMark,
 } from '../../lib/sessionAttendance'
 import {
   calendarDayHeading,
   calendarMonthDayLabel,
-  formatDeviceCalendarDateKey,
+  formatCalendarDateKey,
+  isCalendarDateKey,
 } from '../../lib/timeZone/calendar'
-import { useDeviceTimeZone } from '../../lib/timeZone/device'
-import { Button, MaterialIcon } from '../../components/ui'
-import { cn } from '../../lib/cn'
+import { MaterialIcon } from '../../components/ui'
 
-type DeckFilter = 'all' | 'present' | 'absent' | 'medical'
 
 interface InstructorSessionPageProps {
   classId: string
@@ -45,18 +46,21 @@ function pickSessionForClass(sessions: AgendaSession[], classId: string): Agenda
 
 export function InstructorSessionPage({ classId, onNavigate }: InstructorSessionPageProps) {
   const { search, goBack } = useAppPath()
-  const deviceTimeZone = useDeviceTimeZone()
-  const dateKey =
-    new URLSearchParams(search).get('date')?.trim() || formatDeviceCalendarDateKey()
+  const { user } = useAuth()
+  const dateParam = new URLSearchParams(search).get('date')?.trim() ?? ''
 
   const [classMeta, setClassMeta] = useState<Awaited<ReturnType<typeof fetchSessionDeckClass>> | null>(
     null,
   )
+  const [dateKey, setDateKey] = useState<string | null>(isCalendarDateKey(dateParam) ? dateParam : null)
   const [sessionSlot, setSessionSlot] = useState<AgendaSession | null>(null)
   const [swimmers, setSwimmers] = useState<SessionDeckSwimmer[]>([])
   const [complianceByKey, setComplianceByKey] = useState<Map<string, SwimmerFormCompliance>>(new Map())
+  const [fitnessByChild, setFitnessByChild] = useState<Map<string, DeckFitness>>(new Map())
+  const [overrideChildId, setOverrideChildId] = useState<string | null>(null)
   const [marks, setMarks] = useState<Record<string, AttendanceMark>>({})
-  const [filter, setFilter] = useState<DeckFilter>('all')
+  const [attendanceWarning, setAttendanceWarning] = useState<string | null>(null)
+  const [filter, setFilter] = useState<DeckRosterFilter>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,25 +68,78 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
     setLoading(true)
     setError(null)
     try {
-      const [meta, roster, agenda] = await Promise.all([
-        fetchSessionDeckClass(classId),
+      const meta = await fetchSessionDeckClass(classId)
+      const sessionDate = isCalendarDateKey(dateParam)
+        ? dateParam
+        : formatCalendarDateKey(new Date(), meta?.timezone || 'UTC')
+      const [roster, agenda] = await Promise.all([
         fetchSessionDeckSwimmers(classId),
-        fetchInstructorAgenda(dateKey),
+        fetchInstructorAgenda(sessionDate),
       ])
       setClassMeta(meta)
+      setDateKey(sessionDate)
       setSwimmers(roster)
       setSessionSlot(pickSessionForClass(agenda.sessions, classId))
-      setMarks(getAttendanceMap(classId, dateKey))
+      const attendance = await loadSessionAttendance(classId, sessionDate)
+      setMarks(attendance.marks)
+      setAttendanceWarning(attendance.warning)
     } catch (err) {
       setError(formatAppError(err))
     } finally {
       setLoading(false)
     }
-  }, [classId, dateKey])
+  }, [classId, dateParam])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!classMeta || !dateKey || swimmers.length === 0) {
+      setFitnessByChild(new Map())
+      return
+    }
+    let cancelled = false
+    void fetchDeckFitness({
+      classId,
+      childIds: swimmers.map((swimmer) => swimmer.childId),
+      dateKey,
+      timeZone: classMeta.timezone,
+      startTime: sessionSlot?.startTime ?? null,
+    })
+      .then((next) => {
+        if (!cancelled) setFitnessByChild(next)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(formatAppError(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [classId, classMeta, dateKey, sessionSlot?.startTime, swimmers])
+
+  async function handleVerbalClearance(childId: string, reason: string) {
+    if (!dateKey) return
+    setOverrideChildId(childId)
+    setError(null)
+    try {
+      await recordDeckVerbalClearance({ classId, childId, sessionDate: dateKey, reason })
+      setFitnessByChild((current) => {
+        const next = new Map(current)
+        next.set(childId, {
+          childId,
+          status: 'DECK_CLEARED',
+          canOverride: false,
+          detail: reason.trim() || 'Verbal deck clearance',
+        })
+        return next
+      })
+    } catch (err) {
+      setError(formatAppError(err))
+    } finally {
+      setOverrideChildId(null)
+    }
+  }
 
   useEffect(() => {
     if (swimmers.length === 0) {
@@ -104,25 +161,39 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
 
   const counts = useMemo(() => countAttendance(marks, swimmers.length), [marks, swimmers.length])
 
-  const medicalCount = useMemo(
-    () => swimmers.filter((swimmer) => swimmer.notes.trim().length > 0).length,
-    [swimmers],
-  )
+  const formPendingByChild = useMemo(() => {
+    const pending = new Map<string, boolean>()
+    for (const swimmer of swimmers) {
+      const compliance = complianceByKey.get(formComplianceKey(swimmer.childId, classId))
+      pending.set(swimmer.childId, compliance?.status === 'pending')
+    }
+    return pending
+  }, [swimmers, complianceByKey, classId])
 
-  const filteredSwimmers = useMemo(() => {
-    return swimmers.filter((swimmer) => {
-      const mark = marks[swimmer.childId] ?? 'unmarked'
-      if (filter === 'present') return mark === 'present'
-      if (filter === 'absent') return mark === 'absent'
-      if (filter === 'medical') return swimmer.notes.trim().length > 0
-      return true
-    })
-  }, [swimmers, marks, filter])
-
-  function toggleAttendance(childId: string) {
-    const current = marks[childId] ?? 'unmarked'
-    const next = cycleAttendanceMark(current)
-    setMarks(setAttendanceMark(classId, dateKey, childId, next))
+  async function setAttendance(childId: string, next: 'present' | 'absent') {
+    if (!dateKey || !user?.id) return
+    const previous = marks
+    const optimistic = { ...marks, [childId]: next }
+    setMarks(optimistic)
+    replaceAttendanceMap(classId, dateKey, optimistic)
+    try {
+      await persistAttendanceMark({
+        classId,
+        dateKey,
+        childId,
+        mark: next,
+        markedBy: user.id,
+      })
+      setAttendanceWarning(null)
+    } catch (err) {
+      if (attendanceTableMissing(err)) {
+        setAttendanceWarning(err instanceof Error ? err.message : 'Attendance is still on this device.')
+        return
+      }
+      setMarks(previous)
+      replaceAttendanceMap(classId, dateKey, previous)
+      setError(formatAppError(err))
+    }
   }
 
   const timeLabel = sessionSlot
@@ -135,22 +206,10 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
     classMeta?.location?.trim() ||
     'Location TBD'
 
-  const dateHeading = calendarDayHeading(dateKey, deviceTimeZone)
+  const poolTimeZone = classMeta?.timezone
+  const dateHeading = dateKey && poolTimeZone ? calendarDayHeading(dateKey, poolTimeZone) : 'Today'
 
-  const filterPills: {
-    id: DeckFilter
-    label: string
-    count: number
-    dotClass?: string
-    icon?: string
-  }[] = [
-    { id: 'all', label: 'All', count: swimmers.length },
-    { id: 'present', label: 'Present', count: counts.present, dotClass: 'bg-secondary' },
-    { id: 'absent', label: 'Absent', count: counts.absent, dotClass: 'bg-tertiary' },
-    { id: 'medical', label: 'Medical alerts', count: medicalCount, icon: 'medical_services' },
-  ]
-
-  const footerDateLabel = calendarMonthDayLabel(dateKey, deviceTimeZone)
+  const footerDateLabel = dateKey && poolTimeZone ? calendarMonthDayLabel(dateKey, poolTimeZone) : ''
 
   return (
     <div className="flex min-h-svh flex-col bg-surface text-on-surface">
@@ -158,17 +217,21 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between gap-2 px-margin-screen">
           <button
             type="button"
-            aria-label="Back to Today"
+            aria-label="Back"
             className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-primary transition-all hover:bg-surface-container active:scale-95"
-            onClick={() => goBack(`${INSTRUCTOR_HOME_PATH}?date=${dateKey}`)}
+            onClick={() =>
+              goBack(
+                instructorBackTarget(
+                  search,
+                  dateKey ? `${INSTRUCTOR_HOME_PATH}?date=${dateKey}` : INSTRUCTOR_HOME_PATH,
+                ),
+              )
+            }
           >
             <MaterialIcon name="arrow_back" size={20} />
-            <span className="text-label-lg font-bold">Today</span>
+            <span className="text-label-lg font-bold">Back</span>
           </button>
-          <h1 className="min-w-0 flex-1 truncate text-center text-headline-sm">Deck roster</h1>
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary">
-            <MaterialIcon name="person" size={18} />
-          </div>
+          <h1 className="min-w-0 flex-1 truncate text-headline-sm">Deck roster</h1>
         </div>
       </header>
 
@@ -178,7 +241,8 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
             <p className="py-4 text-body-md text-on-surface-variant">Loading deck…</p>
           ) : (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-headline-lg-mobile text-on-surface">{classMeta?.name ?? 'Class session'}</h2>
+              <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-1 text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">
                     <MaterialIcon name="calendar_today" size={15} className="text-primary" />
@@ -188,19 +252,10 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
                     <MaterialIcon name="schedule" size={15} />
                     {timeLabel}
                   </span>
-                </div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-label-md font-semibold text-on-primary shadow-sm">
-                  <MaterialIcon name="pool" size={16} />
-                  {locationLabel}
-                </span>
-              </div>
-
-              <div className="flex flex-col justify-between gap-2 pt-1 sm:flex-row sm:items-end">
-                <div>
-                  <h2 className="text-headline-lg-mobile text-on-surface">
-                    {classMeta?.name ?? 'Class session'}
-                  </h2>
-                  <p className="text-body-sm text-on-surface-variant">Deck attendance &amp; safety status</p>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-label-md font-semibold text-on-primary shadow-sm">
+                    <MaterialIcon name="pool" size={16} />
+                    {locationLabel}
+                  </span>
                 </div>
                 <div className="flex flex-col sm:items-end">
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-3 py-1.5 text-label-lg font-bold text-on-secondary-container shadow-sm">
@@ -213,122 +268,50 @@ export function InstructorSessionPage({ classId, onNavigate }: InstructorSession
                 </div>
               </div>
 
-              <div
-                className="flex gap-2 overflow-x-auto pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                role="tablist"
-                aria-label="Roster filters"
-              >
-                {filterPills.map((pill) => {
-                  const active = filter === pill.id
-                  return (
-                    <button
-                      key={pill.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => setFilter(pill.id)}
-                      className={cn(
-                        'flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-label-md font-semibold transition-transform active:scale-95',
-                        active
-                          ? 'bg-primary text-on-primary shadow-sm'
-                          : 'bg-surface-container text-on-surface hover:bg-surface-container-high',
-                      )}
-                    >
-                      {pill.dotClass ? (
-                        <span className={cn('size-2 rounded-full', pill.dotClass)} aria-hidden />
-                      ) : null}
-                      {pill.icon ? (
-                        <MaterialIcon name={pill.icon} size={16} className="text-tertiary" />
-                      ) : null}
-                      <span>{pill.label}</span>
-                      <span
-                        className={cn(
-                          'flex size-5 items-center justify-center rounded-full text-[11px] font-bold',
-                          active ? 'bg-on-primary/20' : 'bg-surface-dim text-on-surface-variant',
-                          pill.id === 'medical' && !active && 'bg-tertiary-fixed text-on-tertiary-fixed',
-                        )}
-                      >
-                        {pill.count}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
             </div>
           )}
         </section>
 
         <div className="flex flex-col gap-4 py-5">
           {error ? <p className="text-body-md text-error">{error}</p> : null}
-
-          {!loading && swimmers.length === 0 ? (
-            <div className="flex flex-col items-center rounded-3xl bg-surface-container-low px-6 py-10 text-center">
-              <div className="mb-3 flex size-14 items-center justify-center rounded-full bg-primary-fixed text-primary">
-                <MaterialIcon name="ios_share" size={28} />
-              </div>
-              <h4 className="text-headline-sm text-on-surface">No swimmers enrolled in this class yet</h4>
-              <p className="mt-1 max-w-xs text-body-md text-on-surface-variant">
-                Share your invite link so parents can join this class.
-              </p>
-              <Button
-                type="button"
-                className="mt-4 h-11 rounded-full"
-                onClick={() => onNavigate(instructorShareClassPath(classId))}
-              >
-                <MaterialIcon name="ios_share" size={20} />
-                Share options
-              </Button>
-            </div>
-          ) : null}
-
-          {!loading && swimmers.length > 0 && filteredSwimmers.length === 0 ? (
-            <div className="flex flex-col items-center rounded-3xl bg-surface-container-low px-6 py-12 text-center">
-              <div className="mb-3 flex size-14 items-center justify-center rounded-full bg-surface-container-high text-primary">
-                <MaterialIcon name="search_off" size={28} />
-              </div>
-              <h4 className="text-headline-sm text-on-surface">No swimmers match this filter</h4>
-              <p className="mt-1 max-w-xs text-body-md text-on-surface-variant">
-                Try selecting All or check attendance toggles on each card.
-              </p>
-              <Button type="button" className="mt-4 rounded-full" onClick={() => setFilter('all')}>
-                Reset to all swimmers
-              </Button>
-            </div>
-          ) : null}
-
-          {filteredSwimmers.map((swimmer) => (
-            <DeckSwimmerCard
-              key={swimmer.childId}
-              swimmer={swimmer}
-              mark={marks[swimmer.childId] ?? 'unmarked'}
-              formCompliance={complianceByKey.get(formComplianceKey(swimmer.childId, classId)) ?? null}
-              onToggleAttendance={() => toggleAttendance(swimmer.childId)}
-              onOpenSubmission={() => {
-                const submissionId = complianceByKey.get(formComplianceKey(swimmer.childId, classId))?.submissionId
-                if (submissionId) onNavigate(instructorSubmissionPath(submissionId, { from: 'deck', classId }))
-              }}
-              onLogProgress={() =>
+          {!loading ? (
+            <DeckRoster
+              swimmers={swimmers}
+              marks={marks}
+              fitnessByChild={fitnessByChild}
+              formPendingByChild={formPendingByChild}
+              filter={filter}
+              onFilter={setFilter}
+              overrideChildId={overrideChildId}
+              onOpenSwimmer={(childId) =>
                 onNavigate(
-                  instructorProgressLogPath({
-                    childId: swimmer.childId,
-                    classId,
-                    date: dateKey,
+                  instructorSwimmerPath(childId, {
+                    from: instructorSessionPath(classId, dateKey ?? undefined),
                   }),
                 )
               }
+              onMarkAttendance={(childId, mark) => void setAttendance(childId, mark)}
+              onVerbalClearance={(childId, reason) => void handleVerbalClearance(childId, reason)}
+              onShare={() =>
+                onNavigate(
+                  `${instructorShareClassPath(classId)}?from=${encodeURIComponent(
+                    instructorSessionPath(classId, dateKey ?? undefined),
+                  )}`,
+                )
+              }
+              onLogProgress={(childId) =>
+                onNavigate(instructorProgressLogPath({ childId, classId, date: dateKey }))
+              }
             />
-          ))}
+          ) : null}
         </div>
 
         {!loading && swimmers.length > 0 ? (
           <footer className="mt-2 flex flex-col items-center gap-1 border-t border-outline-variant/15 pt-4 text-center text-on-surface-variant">
             <div className="flex items-center gap-1.5 text-label-sm">
-              <MaterialIcon name="cloud_done" size={16} className="text-secondary" />
-              Attendance is saved locally on this device for {footerDateLabel}.
+              <MaterialIcon name={attendanceWarning ? 'cloud_off' : 'cloud_done'} size={16} className="text-secondary" />
+              {attendanceWarning ?? `Attendance for ${footerDateLabel} is saved to the class.`}
             </div>
-            <p className="max-w-sm text-body-sm text-outline">
-              Deck mode keeps session attendance on this device until you sync from the lobby network.
-            </p>
           </footer>
         ) : null}
       </main>

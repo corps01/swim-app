@@ -1,7 +1,7 @@
 import type { InstructorSwimmerEntry } from '../../lib/api/instructorSwimmers'
 import type { SwimmerFormCompliance } from '../../types/questionnaire'
 import { cn } from '../../lib/cn'
-import { MaterialIcon } from '../ui'
+import { Badge, MaterialIcon, ProfileAvatar } from '../ui'
 import { FormComplianceBadge } from './FormComplianceBadge'
 
 export type SwimmerFormStatus = 'completed' | 'missing' | 'issues'
@@ -11,11 +11,10 @@ interface InstructorSwimmerCardProps {
   displayStatus: SwimmerFormStatus
   formCompliance?: SwimmerFormCompliance | null
   onLogProgress: () => void
+  onOpen?: () => void
   onOpenSubmission?: () => void
-}
-
-function initials(first: string, last: string) {
-  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
+  onOpenClass?: () => void
+  onOpenHistory?: () => void
 }
 
 export function swimmerFormDisplayStatus(status: InstructorSwimmerEntry['status']): SwimmerFormStatus {
@@ -28,7 +27,10 @@ export function InstructorSwimmerCard({
   displayStatus,
   formCompliance,
   onLogProgress,
+  onOpen,
   onOpenSubmission,
+  onOpenClass,
+  onOpenHistory,
 }: InstructorSwimmerCardProps) {
   const fullName = `${entry.firstName} ${entry.lastName}`
   const isCompleted = displayStatus === 'completed'
@@ -38,131 +40,107 @@ export function InstructorSwimmerCard({
   return (
     <article
       className={cn(
-        'group relative rounded-lg bg-surface-container-lowest p-card-padding shadow-[0_4px_16px_-2px_rgba(0,100,124,0.06)] transition-all',
+        'group flex flex-col overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-[0_12px_28px_-16px_rgba(15,23,42,0.18)]',
         isCompleted && 'cursor-pointer active:scale-[0.99]',
       )}
       data-name={fullName.toLowerCase()}
       data-status={displayStatus}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <div className="relative size-12 shrink-0">
-            <div className="size-full overflow-hidden rounded-full bg-surface-container-high">
-              <div
-                className="flex size-full items-center justify-center bg-primary-fixed text-label-lg font-bold text-on-primary-fixed-variant"
-                aria-hidden
-              >
-                {initials(entry.firstName, entry.lastName)}
-              </div>
-            </div>
-            <div
-              className={cn(
-                'absolute bottom-0 right-0 z-10 size-3.5 rounded-full border-2 border-surface-container-lowest',
-                isCompleted && 'bg-secondary',
-                isMissing && 'bg-amber-500',
-                displayStatus === 'issues' && 'bg-tertiary',
-              )}
-              aria-hidden
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-col">
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-start justify-between gap-3 border-b border-outline-variant/20 px-4 py-3.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <ProfileAvatar firstName={entry.firstName} lastName={entry.lastName} />
+          <div className="min-w-0">
+            {onOpen ? (
+              <button type="button" onClick={onOpen} className="truncate text-left text-headline-sm text-on-surface">
+                {fullName}
+              </button>
+            ) : (
               <h3 className="truncate text-headline-sm text-on-surface">{fullName}</h3>
-              {formCompliance ? (
-                <FormComplianceBadge
-                  status={formCompliance.status}
-                  swimmerName={fullName}
-                  onOpen={
-                    formCompliance.status === 'signed' && formCompliance.submissionId
-                      ? onOpenSubmission
-                      : undefined
-                  }
-                />
-              ) : (
-                <StatusBadge status={displayStatus} />
-              )}
-            </div>
-
+            )}
             {displayStatus === 'issues' ? (
               <p className="mt-0.5 flex items-center gap-1 text-body-sm font-medium text-tertiary">
                 <MaterialIcon name="info" size={15} />
                 Health note on file
               </p>
             ) : null}
-
-            <p className="mt-0.5 flex items-center gap-1 text-body-sm text-on-surface-variant">
-              <MaterialIcon name="family_restroom" size={15} className="text-outline" />
-              Parent: <span className="font-medium text-on-surface">{entry.parentName}</span>
-            </p>
-
-            <div className="mt-2 flex items-center gap-1.5 text-label-sm text-on-surface-variant">
-              <MaterialIcon name="schedule" size={14} className="text-primary" />
-              <span>Upcoming session</span>
-              <span className="size-1 rounded-full bg-outline-variant" aria-hidden />
-              <span className="truncate font-semibold text-primary">{entry.classLabel}</span>
-            </div>
           </div>
         </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {formCompliance ? (
+            <FormComplianceBadge
+              status={formCompliance.status}
+              swimmerName={fullName}
+              onOpen={
+                formCompliance.status === 'signed' && formCompliance.submissionId
+                  ? onOpenSubmission
+                  : undefined
+              }
+            />
+          ) : (
+            <StatusBadge status={displayStatus} />
+          )}
+          {showChevron ? <MaterialIcon name="chevron_right" size={20} className="text-outline" /> : null}
+        </div>
+      </div>
 
-        {showChevron ? (
-          <div
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-outline transition-colors group-hover:bg-primary/10 group-hover:text-primary"
-            aria-hidden
+      <div className="flex flex-col gap-1 px-4 py-3 text-body-sm text-on-surface-variant">
+        <p className="flex items-center gap-1">
+          <MaterialIcon name="family_restroom" size={15} />
+          Parent: <span className="font-medium text-on-surface">{entry.parentName}</span>
+        </p>
+        <p className="flex min-w-0 items-center gap-1.5">
+          <MaterialIcon name="schedule" size={14} className="text-primary" />
+          <span>Upcoming session</span>
+          {onOpenClass ? (
+            <button type="button" onClick={onOpenClass} className="truncate font-semibold text-primary">
+              {entry.classLabel}
+            </button>
+          ) : (
+            <span className="truncate font-semibold text-primary">{entry.classLabel}</span>
+          )}
+        </p>
+      </div>
+
+      <div className="mt-auto flex flex-col gap-2 border-t border-outline-variant/20 px-4 py-3">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onLogProgress}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-label-md font-semibold text-on-primary active:scale-95"
           >
-            <MaterialIcon name="chevron_right" size={20} />
+            <MaterialIcon name="photo_camera" size={18} />
+            Log progress
+          </button>
+          {onOpenHistory ? (
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 text-label-md font-semibold text-on-surface active:scale-95"
+            >
+              <MaterialIcon name="fact_check" size={18} />
+              BUDS history
+            </button>
+          ) : null}
+        </div>
+        {isMissing ? (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-label-sm text-outline">Liability &amp; health waiver</span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/40 px-3 py-2 text-label-md font-semibold text-on-surface active:scale-95"
+            >
+              <MaterialIcon name="send" size={16} />
+              Send reminder
+            </button>
           </div>
         ) : null}
       </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onLogProgress}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-fixed/25 px-3 py-2 text-label-md font-bold text-primary active:scale-95"
-        >
-          <MaterialIcon name="photo_camera" size={18} />
-          Log progress
-        </button>
-      </div>
-
-      {isMissing ? (
-        <div className="-mx-card-padding -mb-card-padding mt-3 flex items-center justify-between rounded-b-lg bg-surface-container-low/50 px-card-padding py-2.5">
-          <span className="text-label-sm text-outline">Liability &amp; health waiver</span>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-label-md text-on-primary shadow-[0_2px_8px_rgba(0,100,124,0.18)] transition-all active:scale-95"
-          >
-            <MaterialIcon name="send" size={16} />
-            Send reminder
-          </button>
-        </div>
-      ) : null}
     </article>
   )
 }
 
 function StatusBadge({ status }: { status: SwimmerFormStatus }) {
-  if (status === 'completed') {
-    return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 text-label-sm font-semibold text-on-secondary-container">
-        <MaterialIcon name="check_circle" size={13} />
-        Completed
-      </span>
-    )
-  }
-  if (status === 'issues') {
-    return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-error-container px-2 py-0.5 text-label-sm font-semibold text-on-error-container">
-        <MaterialIcon name="thermostat" size={13} />
-        Issue
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-label-sm font-semibold text-amber-900">
-      <MaterialIcon name="warning" size={13} />
-      Missing form
-    </span>
-  )
+  if (status === 'completed') return <Badge tone="success">Completed</Badge>
+  if (status === 'issues') return <Badge tone="danger">Issue</Badge>
+  return <Badge tone="warning">Missing form</Badge>
 }

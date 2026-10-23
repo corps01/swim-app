@@ -8,5 +8,9 @@
 --   5. docs/sql/05-progress-logs.sql
 --   6. docs/sql/06-progress-cheers.sql
 --   7. docs/sql/07-questionnaire-engine.sql
+--   8. docs/sql/08-notification-preferences.sql
+--   9. docs/sql/09-push-reminders.sql
+--   10. docs/sql/10-buds-fitness.sql
+--   11. docs/sql/11-attendance.sql
 --
 -- See docs/sql/README.md

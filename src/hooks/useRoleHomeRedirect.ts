@@ -1,8 +1,11 @@
 import { useEffect } from 'react'
 import {
   INSTRUCTOR_HOME_PATH,
+  instructorClassDetailPath,
+  matchLegacyClassDetailPath,
   PARENT_ENROLL_PATH,
   PARENT_HOME_PATH,
+  SETTINGS_PATH,
 } from '../lib/appNavigation'
 import { normalizeClassCodeInput } from '../lib/classCode'
 import {
@@ -25,8 +28,14 @@ export function getRoleCorrectionPath(
   const pathname = window.location.pathname
   const isInstructor = user.role === 'instructor'
 
-  if (isInstructor && !pathname.startsWith('/instructor')) {
-    return INSTRUCTOR_HOME_PATH
+  if (isInstructor) {
+    const legacyClassId = matchLegacyClassDetailPath(pathname)
+    if (legacyClassId) {
+      return `${instructorClassDetailPath(legacyClassId)}${window.location.search}`
+    }
+    if (pathname !== SETTINGS_PATH && !pathname.startsWith('/instructor')) {
+      return INSTRUCTOR_HOME_PATH
+    }
   }
 
   if (!isInstructor && pathname.startsWith('/instructor')) {

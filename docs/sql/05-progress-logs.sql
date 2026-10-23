@@ -97,6 +97,15 @@ CREATE POLICY "progress_photos_select_linked"
     )
   );
 
+GRANT DELETE ON public.progress_logs TO authenticated;
+
+DROP POLICY IF EXISTS "progress_logs_delete_own" ON public.progress_logs;
+CREATE POLICY "progress_logs_delete_own"
+  ON public.progress_logs
+  FOR DELETE
+  TO authenticated
+  USING (instructor_id = auth.uid());
+
 DROP POLICY IF EXISTS "progress_photos_delete_instructor" ON storage.objects;
 CREATE POLICY "progress_photos_delete_instructor"
   ON storage.objects

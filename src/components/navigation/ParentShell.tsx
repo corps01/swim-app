@@ -1,14 +1,18 @@
 import type { ReactNode } from 'react'
 import {
   PARENT_ACCOUNT_PATH,
+  PARENT_CLASSES_PATH,
   PARENT_HOME_PATH,
+  PARENT_SWIMMERS_PATH,
 } from '../../lib/appNavigation'
 import { BrandMark } from '../layout/BrandMark'
 import { Button, MaterialIcon } from '../ui'
 import { DesktopTabNav, MobileTabNav, type TabNavItem } from './ResponsiveTabNav'
 
 const PARENT_TABS: TabNavItem[] = [
-  { id: 'swimmers', label: 'Swimmers', icon: 'scuba_diving', href: PARENT_HOME_PATH },
+  { id: 'today', label: 'Today', icon: 'today', href: PARENT_HOME_PATH },
+  { id: 'swimmers', label: 'Swimmers', icon: 'pool', href: PARENT_SWIMMERS_PATH },
+  { id: 'classes', label: 'Classes', icon: 'menu_book', href: PARENT_CLASSES_PATH },
   { id: 'account', label: 'Account', icon: 'account_circle', href: PARENT_ACCOUNT_PATH },
 ]
 
@@ -47,18 +51,20 @@ export function ParentShell({
             <DesktopTabNav {...navProps} />
             <h1 className="truncate text-headline-sm text-on-surface md:hidden">{screenTitle}</h1>
           </div>
-          {showEnrollCta && onEnroll ? (
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 shrink-0 rounded-full px-3 text-label-sm shadow-[0_4px_16px_-2px_rgba(8,145,178,0.25)]"
-              onClick={onEnroll}
-            >
-              <MaterialIcon name="add" size={18} />
-              <span className="hidden sm:inline">Enroll child</span>
-              <span className="sm:hidden">Enroll</span>
-            </Button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-1">
+            {showEnrollCta && onEnroll ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 shrink-0 rounded-full px-3 text-label-sm shadow-[0_4px_16px_-2px_rgba(8,145,178,0.25)]"
+                onClick={onEnroll}
+              >
+                <MaterialIcon name="add" size={18} />
+                <span className="hidden sm:inline">Enroll child</span>
+                <span className="sm:hidden">Enroll</span>
+              </Button>
+            ) : null}
+          </div>
         </div>
       </header>
 

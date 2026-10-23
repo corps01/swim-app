@@ -1,0 +1,4 @@
+project_id = "swim-app"
+
+[functions.send-form-reminders]
+verify_jwt = true

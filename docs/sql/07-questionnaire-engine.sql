@@ -29,6 +29,12 @@ ALTER TABLE public.question_bank
   ADD CONSTRAINT question_bank_input_type_check
   CHECK (input_type IN ('text', 'textarea', 'yes_no', 'select'));
 
+-- bank_order keeps a built-in bank in its printed order; required_by_default
+-- seeds the Required toggle when an instructor adds the question.
+ALTER TABLE public.question_bank ADD COLUMN IF NOT EXISTS bank_order integer;
+ALTER TABLE public.question_bank
+  ADD COLUMN IF NOT EXISTS required_by_default boolean NOT NULL DEFAULT true;
+
 CREATE TABLE IF NOT EXISTS public.form_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   instructor_id uuid NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
@@ -402,6 +408,83 @@ SET
   question_text = EXCLUDED.question_text,
   input_type = EXCLUDED.input_type,
   options = EXCLUDED.options;
+
+-- ISR Daily BUDS Interview for RET Protocols. Explanation boxes default to
+-- optional so parents only fill them when something changed.
+INSERT INTO public.question_bank (
+  id,
+  instructor_id,
+  category,
+  question_text,
+  input_type,
+  options,
+  bank_order,
+  required_by_default
+)
+VALUES
+  ('11111111-1111-4111-8111-111111111201', NULL, 'isr_buds',
+    'Were all bowel movements since the last lesson normal in consistency and schedule?',
+    'yes_no', NULL, 1, true),
+  ('11111111-1111-4111-8111-111111111202', NULL, 'isr_buds',
+    'Was urine output more, normal, or less than usual in the hour after the last lesson?',
+    'select', '["More", "Normal", "Less"]'::jsonb, 2, true),
+  ('11111111-1111-4111-8111-111111111203', NULL, 'isr_buds',
+    'Has urination frequency/amount been normal since the last lesson?',
+    'yes_no', NULL, 3, true),
+  ('11111111-1111-4111-8111-111111111204', NULL, 'isr_buds',
+    'Explanation for any changes to bowel & urine',
+    'textarea', NULL, 4, false),
+  ('11111111-1111-4111-8111-111111111205', NULL, 'isr_buds',
+    'What has your child had to eat or drink in the last two hours? Please note when.',
+    'textarea', NULL, 5, true),
+  ('11111111-1111-4111-8111-111111111206', NULL, 'isr_buds',
+    'Please list any new foods given since the last lesson, as well as any reaction to the new food.',
+    'textarea', NULL, 6, false),
+  ('11111111-1111-4111-8111-111111111207', NULL, 'isr_buds',
+    'Was your child''s sleep/nap schedule typical since the last lesson?',
+    'yes_no', NULL, 7, true),
+  ('11111111-1111-4111-8111-111111111208', NULL, 'isr_buds',
+    'Did your child fall asleep within 10 minutes of the last lesson?',
+    'yes_no', NULL, 8, true),
+  ('11111111-1111-4111-8111-111111111209', NULL, 'isr_buds',
+    'Explanation for any changes to sleep',
+    'textarea', NULL, 9, false),
+  ('11111111-1111-4111-8111-111111111210', NULL, 'isr_buds',
+    'Have there been any changes to your child''s activity/energy level or normal routine since the last lesson?',
+    'yes_no', NULL, 10, true),
+  ('11111111-1111-4111-8111-111111111211', NULL, 'isr_buds',
+    'Has your child been swimming or in the water (other than bathing) since the last lesson?',
+    'yes_no', NULL, 11, true),
+  ('11111111-1111-4111-8111-111111111212', NULL, 'isr_buds',
+    'Has your child had any illnesses, seizures, fever >100.5, vomiting or skin rashes since the last lesson?',
+    'yes_no', NULL, 12, true),
+  ('11111111-1111-4111-8111-111111111213', NULL, 'isr_buds',
+    'Has your child had any injuries or required any medical attention (including MD appts)?',
+    'yes_no', NULL, 13, true),
+  ('11111111-1111-4111-8111-111111111214', NULL, 'isr_buds',
+    'Has your child taken any medication since the last lesson?',
+    'yes_no', NULL, 14, true),
+  ('11111111-1111-4111-8111-111111111215', NULL, 'isr_buds',
+    'Explanation for YES answers and list ALL medications',
+    'textarea', NULL, 15, false),
+  ('11111111-1111-4111-8111-111111111216', NULL, 'isr_buds',
+    'Child''s temperature within one hour of lesson and/or 24 hour activity notes (if required)',
+    'textarea', NULL, 16, false),
+  ('11111111-1111-4111-8111-111111111217', NULL, 'isr_buds',
+    'Do you have any questions or concerns about your child participating in lessons today, or about your child''s progression so far?',
+    'yes_no', NULL, 17, true),
+  ('11111111-1111-4111-8111-111111111218', NULL, 'isr_buds',
+    'Explanation for any missed lessons/lesson notes',
+    'textarea', NULL, 18, false)
+ON CONFLICT (id) DO UPDATE
+SET
+  instructor_id = NULL,
+  category = EXCLUDED.category,
+  question_text = EXCLUDED.question_text,
+  input_type = EXCLUDED.input_type,
+  options = EXCLUDED.options,
+  bank_order = EXCLUDED.bank_order,
+  required_by_default = EXCLUDED.required_by_default;
 
 -- ---------------------------------------------------------------------------
 -- 9. Save a template, its questions, and class links in one transaction

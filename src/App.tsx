@@ -14,8 +14,21 @@ import {
   instructorShareClassPath,
   isKnownInstructorPath,
   isKnownParentPath,
+  classDetailBackPath,
+  instructorBackTarget,
+  instructorClassDetailPath,
+  matchInstructorClassDetailPath,
+  matchInstructorDeckPath,
+  matchInstructorSwimmerPath,
+  matchLegacyClassDetailPath,
+  PARENT_ACCOUNT_PATH,
+  PARENT_CLASSES_PATH,
   PARENT_HOME_PATH,
-  parentEditSwimmerPath,
+  parentBackTarget,
+  parentSwimmerClassPath,
+  PARENT_SWIMMERS_PATH,
+  SETTINGS_PATH,
+  parentSwimmerPath,
   parseParentRoute,
   submissionBackPath,
 } from './lib/appNavigation'
@@ -23,9 +36,12 @@ import { markQuestionnaireSigned } from './lib/questionnaireNotice'
 import { LoginRegisterPage } from './pages/LoginRegisterPage'
 import { EnrollChild } from './pages/parent/EnrollChild'
 import { EditSwimmerPage } from './pages/parent/EditSwimmerPage'
-import { ParentSwimmerActivityPage } from './pages/parent/ParentSwimmerActivityPage'
+import { SwimmerDetail } from './pages/parent/SwimmerDetail'
 import { ParentQuestionnairePage } from './pages/parent/ParentQuestionnairePage'
 import { ParentAccountPage } from './pages/parent/ParentAccountPage'
+import { ParentSwimmersPage } from './pages/parent/ParentSwimmersPage'
+import { ParentClassesPage } from './pages/parent/ParentClassesPage'
+import { ClassDetail as ParentClassDetail } from './pages/parent/ClassDetail'
 import { InstructorAccountPage } from './pages/instructor/InstructorAccountPage'
 import { InstructorCreateClassPage } from './pages/InstructorCreateClassPage'
 import { InstructorShareInvitePage } from './pages/InstructorShareInvitePage'
@@ -33,12 +49,15 @@ import { InstructorAgendaPage } from './pages/instructor/InstructorAgendaPage'
 import { InstructorClassesPage } from './pages/instructor/InstructorClassesPage'
 import { InstructorEditClassPage } from './pages/instructor/InstructorEditClassPage'
 import { InstructorSwimmersPage } from './pages/instructor/InstructorSwimmersPage'
+import { InstructorSwimmerDetail } from './pages/instructor/SwimmerDetail'
 import { InstructorSessionPage } from './pages/instructor/InstructorSessionPage'
 import { InstructorProgressLogPage } from './pages/instructor/InstructorProgressLogPage'
 import { InstructorFormsPage } from './pages/instructor/InstructorFormsPage'
 import { InstructorFormBuilderPage } from './pages/instructor/InstructorFormBuilderPage'
 import { InstructorSubmissionPage } from './pages/instructor/InstructorSubmissionPage'
-import { ParentHomePage } from './pages/ParentHomePage'
+import { ClassDetail } from './pages/instructor/ClassDetail'
+import { TodayHome } from './pages/parent/TodayHome'
+import { Settings } from './pages/Settings'
 import { useAuthNavigationGate, useRoleHomeRedirect } from './hooks/useRoleHomeRedirect'
 import { clearStoredPendingInviteCode } from './lib/pendingInvite'
 
@@ -66,9 +85,19 @@ export default function App() {
         replace(INSTRUCTOR_SWIMMERS_PATH + search)
         return
       }
+      const legacyClassId = matchLegacyClassDetailPath(pathname)
+      if (legacyClassId) {
+        replace(`${instructorClassDetailPath(legacyClassId)}${search}`)
+        return
+      }
       if (!isKnownInstructorPath(pathname)) {
         replace(INSTRUCTOR_HOME_PATH)
       }
+      return
+    }
+    const activityChildId = pathname.match(/^\/swimmers\/([^/]+)\/activity\/?$/)?.[1]
+    if (activityChildId) {
+      replace(`${parentSwimmerPath(activityChildId)}${search}`)
       return
     }
     if (!isKnownParentPath(pathname)) {
@@ -89,12 +118,37 @@ export default function App() {
     return <LoginRegisterPage />
   }
 
+  if (pathname === SETTINGS_PATH) {
+    return (
+      <Settings
+        onBack={() => goBack(isInstructor ? INSTRUCTOR_ACCOUNT_PATH : PARENT_ACCOUNT_PATH)}
+      />
+    )
+  }
+
   if (isInstructor) {
     if (pathname === INSTRUCTOR_CREATE_CLASS_PATH) {
       return (
         <InstructorCreateClassPage
-          onBack={() => goBack(INSTRUCTOR_CLASSES_PATH)}
+          onBack={() => goBack(instructorBackTarget(search, INSTRUCTOR_CLASSES_PATH))}
           onCreated={(created) => replace(instructorShareClassPath(created.id))}
+        />
+      )
+    }
+
+    const deckClassId = matchInstructorDeckPath(pathname)
+    if (deckClassId) {
+      return <InstructorSessionPage classId={deckClassId} onNavigate={navigate} />
+    }
+
+    const classDetailId = matchInstructorClassDetailPath(pathname)
+    if (classDetailId) {
+      return (
+        <ClassDetail
+          key={classDetailId}
+          classId={classDetailId}
+          onBack={() => goBack(classDetailBackPath(search))}
+          onNavigate={navigate}
         />
       )
     }
@@ -104,7 +158,8 @@ export default function App() {
       return (
         <InstructorShareInvitePage
           classId={shareClassMatch[1]}
-          onBack={() => goBack(INSTRUCTOR_CLASSES_PATH)}
+          onNavigate={navigate}
+          onBack={() => goBack(instructorBackTarget(search, instructorClassDetailPath(shareClassMatch[1], { from: 'classes' })))}
         />
       )
     }
@@ -114,16 +169,9 @@ export default function App() {
       return (
         <InstructorEditClassPage
           classId={editClassMatch[1]}
-          onBack={() => goBack(INSTRUCTOR_CLASSES_PATH)}
-          onSaved={() => goBack(INSTRUCTOR_CLASSES_PATH)}
+          onBack={() => goBack(instructorClassDetailPath(editClassMatch[1], { from: 'classes' }))}
+          onSaved={() => goBack(instructorClassDetailPath(editClassMatch[1], { from: 'classes' }))}
         />
-      )
-    }
-
-    const sessionClassMatch = pathname.match(/^\/instructor\/classes\/([^/]+)\/?$/)
-    if (sessionClassMatch?.[1]) {
-      return (
-        <InstructorSessionPage classId={sessionClassMatch[1]} onNavigate={navigate} />
       )
     }
 
@@ -144,6 +192,11 @@ export default function App() {
       return <RouteResolvingScreen />
     }
 
+    const instructorSwimmerId = matchInstructorSwimmerPath(pathname)
+    if (instructorSwimmerId) {
+      return <InstructorSwimmerDetail childId={instructorSwimmerId} onNavigate={navigate} />
+    }
+
     if (pathname === INSTRUCTOR_SWIMMERS_PATH) {
       return <InstructorSwimmersPage onNavigate={navigate} />
     }
@@ -155,7 +208,7 @@ export default function App() {
     if (pathname === INSTRUCTOR_FORMS_PATH) {
       return (
         <InstructorFormsPage
-          onBack={() => goBack(INSTRUCTOR_ACCOUNT_PATH)}
+          onBack={() => goBack(instructorBackTarget(search, INSTRUCTOR_ACCOUNT_PATH))}
           onNavigate={navigate}
         />
       )
@@ -197,7 +250,7 @@ export default function App() {
     return (
       <InstructorAgendaPage
         onNavigate={navigate}
-        onNewClass={() => navigate(INSTRUCTOR_CREATE_CLASS_PATH)}
+        onNewClass={() => navigate(`${INSTRUCTOR_CREATE_CLASS_PATH}?from=${encodeURIComponent(INSTRUCTOR_HOME_PATH)}`)}
       />
     )
   }
@@ -205,14 +258,15 @@ export default function App() {
   const parentRoute = parseParentRoute(pathname)
 
   if (parentRoute.kind === 'enroll') {
+    const returnPath = parentBackTarget(search, PARENT_SWIMMERS_PATH)
     return (
       <EnrollChild
         onSignOut={handleSignOut}
-        onBack={() => goBack(PARENT_HOME_PATH)}
+        onBack={() => goBack(returnPath)}
         onFinished={() => {
           clearStoredPendingInviteCode()
           setHomeRefreshKey((key) => key + 1)
-          goBack(PARENT_HOME_PATH)
+          goBack(returnPath)
         }}
       />
     )
@@ -224,34 +278,42 @@ export default function App() {
         key={parentRoute.childId}
         childId={parentRoute.childId}
         onSignOut={handleSignOut}
-        onBack={() => goBack(PARENT_HOME_PATH)}
+        onBack={() => goBack(parentSwimmerPath(parentRoute.childId))}
         onSaved={() => {
           setHomeRefreshKey((key) => key + 1)
-          goBack(PARENT_HOME_PATH)
+          goBack(parentSwimmerPath(parentRoute.childId))
         }}
       />
     )
   }
 
-  if (parentRoute.kind === 'activity') {
+  if (parentRoute.kind === 'swimmer' || parentRoute.kind === 'activity') {
     return (
-      <ParentSwimmerActivityPage
+      <SwimmerDetail
         key={parentRoute.childId}
         childId={parentRoute.childId}
+        onNavigate={navigate}
       />
     )
   }
 
-  if (parentRoute.kind === 'questionnaire') {
+  if (parentRoute.kind === 'questionnaire' || parentRoute.kind === 'buds' || parentRoute.kind === 'waiver') {
+    const classId = new URLSearchParams(search).get('classId')
+    const returnPath =
+      parentRoute.kind === 'buds'
+        ? PARENT_HOME_PATH
+        : parentRoute.kind === 'waiver' && classId
+          ? parentSwimmerClassPath(parentRoute.childId, classId)
+          : parentSwimmerPath(parentRoute.childId)
     return (
       <ParentQuestionnairePage
-        key={parentRoute.childId}
+        key={`${parentRoute.kind}-${parentRoute.childId}`}
         childId={parentRoute.childId}
-        onBack={() => goBack(PARENT_HOME_PATH)}
+        onBack={() => goBack(returnPath)}
         onFinished={() => {
           markQuestionnaireSigned()
           setHomeRefreshKey((key) => key + 1)
-          goBack(PARENT_HOME_PATH)
+          goBack(returnPath)
         }}
       />
     )
@@ -261,11 +323,31 @@ export default function App() {
     return <ParentAccountPage onNavigate={navigate} onSignOut={handleSignOut} />
   }
 
+  if (parentRoute.kind === 'swimmerClass') {
+    return (
+      <ParentClassDetail
+        key={parentRoute.classId}
+        classId={parentRoute.classId}
+        onBack={() => goBack(parentBackTarget(search, PARENT_CLASSES_PATH))}
+        onNavigate={navigate}
+      />
+    )
+  }
+
+  if (parentRoute.kind === 'classes') {
+    return <ParentClassesPage key={homeRefreshKey} onNavigate={navigate} />
+  }
+
+  if (parentRoute.kind === 'swimmers') {
+    return (
+      <ParentSwimmersPage
+        key={homeRefreshKey}
+        onNavigate={navigate}
+      />
+    )
+  }
+
   return (
-    <ParentHomePage
-      key={homeRefreshKey}
-      onNavigate={navigate}
-      onEditSwimmer={(childId) => navigate(parentEditSwimmerPath(childId))}
-    />
+    <TodayHome key={homeRefreshKey} onNavigate={navigate} />
   )
 }

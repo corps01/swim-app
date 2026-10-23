@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { AppLayout } from '../../components/layout'
-import { MaterialIcon, Spinner } from '../../components/ui'
+import { MaterialIcon, ProfileAvatar, Spinner } from '../../components/ui'
 import { fetchFormSubmissionReview } from '../../lib/api/forms'
 import { formatAppError } from '../../lib/errors'
+import { formatAnswer } from '../../lib/formQuestions'
 import { ageFromDateOfBirth } from '../../lib/swimmers'
 import type { AnswerSnapshot, FormSubmissionReview } from '../../types/questionnaire'
 
@@ -24,23 +25,6 @@ function formatSignedAt(value: string): string {
   }).format(date)
 }
 
-function formatAnswer(inputType: string, answer: string): string {
-  const trimmed = answer.trim()
-  if (!trimmed) return ''
-  if (inputType === 'yes_no') {
-    if (trimmed === 'yes') return 'Yes'
-    if (trimmed === 'no') return 'No'
-  }
-  return trimmed
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return parts
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('')
-}
 
 function AnswerCard({ answer, index }: { answer: AnswerSnapshot; index: number }) {
   const label = formatAnswer(answer.input_type, answer.answer)
@@ -149,9 +133,7 @@ export function InstructorSubmissionPage({ submissionId, onBack }: InstructorSub
 
             <div className="mb-3 flex items-center gap-3.5 pb-3 pr-24">
               <div className="relative">
-                <div className="flex size-14 items-center justify-center rounded-full bg-primary-fixed text-headline-sm text-on-primary-fixed shadow-sm">
-                  {initials(review.swimmerName)}
-                </div>
+                <ProfileAvatar name={review.swimmerName} size="lg" />
                 <div className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-secondary text-on-secondary">
                   <MaterialIcon name="check" size={12} filled />
                 </div>

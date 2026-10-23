@@ -16,12 +16,8 @@ import { formatAppError, throwIfSupabaseError } from '../../lib/errors'
 import { ageFromDateOfBirth } from '../../lib/swimmers'
 import { PROGRESS_ALL_QUICK_TAGS, appendQuickTagToNote } from '../../lib/progressLogTags'
 import { getSupabaseClient } from '../../lib/supabase'
-import { Button, MaterialIcon } from '../../components/ui'
+import { Button, MaterialIcon, ProfileAvatar } from '../../components/ui'
 import { cn } from '../../lib/cn'
-
-function swimmerInitials(first: string, last: string) {
-  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
-}
 
 function shortName(first: string, last: string) {
   return `${first} ${last.charAt(0)}.`
@@ -122,7 +118,7 @@ export function InstructorProgressLogPage() {
         childId: nextChildId,
         classId,
         date,
-        from: from === 'swimmers' ? 'swimmers' : undefined,
+        from: from === 'swimmers' || from === 'student' ? from : undefined,
       }),
     )
   }
@@ -206,13 +202,11 @@ export function InstructorProgressLogPage() {
           <div className="flex flex-col gap-3 rounded-2xl bg-surface-container-low p-card-padding shadow-[0_4px_16px_-2px_rgba(8,145,178,0.08)]">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-primary-fixed shadow-sm">
-                  <div className="flex size-full items-center justify-center text-label-lg font-bold text-on-primary-fixed-variant">
-                    {swimmerInitials(
-                      activeSwimmer?.firstName ?? displayName.split(' ')[0] ?? 'S',
-                      activeSwimmer?.lastName ?? displayName.split(' ')[1] ?? 'W',
-                    )}
-                  </div>
+                <div className="relative shrink-0">
+                  <ProfileAvatar
+                    firstName={activeSwimmer?.firstName ?? displayName.split(' ')[0]}
+                    lastName={activeSwimmer?.lastName ?? displayName.split(' ')[1]}
+                  />
                   <span className="absolute bottom-0 right-0 size-3.5 rounded-full border-2 border-surface-container-low bg-secondary" />
                 </div>
                 <div className="min-w-0">
@@ -267,13 +261,8 @@ export function InstructorProgressLogPage() {
                         : 'bg-surface-container-lowest text-on-surface shadow-sm',
                     )}
                   >
-                    <div
-                      className={cn(
-                        'relative flex size-8 items-center justify-center overflow-hidden rounded-full bg-primary-fixed-dim text-label-sm font-bold',
-                        selected && 'ring-2 ring-on-primary/30',
-                      )}
-                    >
-                      {swimmerInitials(swimmer.firstName, swimmer.lastName)}
+                    <div className="relative">
+                      <ProfileAvatar firstName={swimmer.firstName} lastName={swimmer.lastName} size="sm" className={selected ? 'ring-2 ring-on-primary/30' : undefined} />
                       {selected ? (
                         <span className="absolute inset-0 flex items-center justify-center bg-primary/25">
                           <MaterialIcon name="check" size={16} className="text-on-primary" />

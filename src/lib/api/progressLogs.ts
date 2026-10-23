@@ -109,6 +109,12 @@ export async function fetchProgressLogsForChild(childId: string): Promise<Progre
   return rows.map((row) => mapRow(row, names.get(row.instructor_id) ?? 'Coach'))
 }
 
+export async function deleteProgressLog(logId: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.from('progress_logs').delete().eq('id', logId)
+  throwIfSupabaseError(error)
+}
+
 export async function fetchLatestProgressLogsByChildIds(
   childIds: string[],
 ): Promise<Map<string, ProgressLog>> {

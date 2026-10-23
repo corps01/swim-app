@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AppLayout } from '../../components/layout'
+import { BudsDailyCheckIn } from '../../components/forms/BudsDailyCheckIn'
 import { SignatureCanvas } from '../../components/forms/SignatureCanvas'
 import { Button, Field, MaterialIcon, Spinner } from '../../components/ui'
 import { controlClass } from '../../components/ui/styles'
@@ -7,9 +8,11 @@ import { useAppPath } from '../../hooks/useAppPath'
 import { useAuth } from '../../hooks/useAuth'
 import {
   fetchParentQuestionnaire,
+  fetchPreviousDailyAnswers,
   SIGNATURE_AGREEMENT,
   submitFormSignature,
 } from '../../lib/api/forms'
+import { isLastMealQuestion, isSleepHoursQuestion, parseMealClock, parseSleepHours } from '../../lib/budsFitness'
 import type { AnswerSnapshot, ParentQuestionnaire } from '../../types/questionnaire'
 import { fetchParentSwimmers } from '../../lib/api/swimmers'
 import { parseParentQuestionnaireSearch } from '../../lib/appNavigation'
@@ -23,16 +26,24 @@ interface ParentQuestionnairePageProps {
 }
 
 export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQuestionnairePageProps) {
-  const { search } = useAppPath()
-  const { classId, templateId } = parseParentQuestionnaireSearch(search)
+  const { pathname, search } = useAppPath()
+  const fromSearch = parseParentQuestionnaireSearch(search)
+  const pathTemplateId = pathname.match(/^\/swimmers\/[^/]+\/waiver\/([^/]+)\/?$/)?.[1] ?? null
+  const classId = fromSearch.classId
+  const templateId = fromSearch.templateId ?? pathTemplateId
   const { user } = useAuth()
 
   const [swimmerName, setSwimmerName] = useState<string | null>(null)
+  const [className, setClassName] = useState<string | null>(null)
+  const [instructorName, setInstructorName] = useState<string | null>(null)
+  const [acknowledged, setAcknowledged] = useState(false)
+  const [acknowledgeError, setAcknowledgeError] = useState<string | null>(null)
   const [form, setForm] = useState<ParentQuestionnaire | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [signature, setSignature] = useState<string | null>(null)
   const [signatureError, setSignatureError] = useState<string | null>(null)
+  const [canCloneYesterday, setCanCloneYesterday] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +59,11 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
       setSignature(null)
       setFieldErrors({})
       setSignatureError(null)
+      setAcknowledged(false)
+      setAcknowledgeError(null)
+      setCanCloneYesterday(false)
+      setClassName(null)
+      setInstructorName(null)
       if (!classId || !templateId) {
         setLoading(false)
         return
@@ -65,8 +81,22 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
           setError('This questionnaire is not assigned to this class.')
           return
         }
+        const enrollment = swimmer.enrollments.find((row) => row.classId === classId)
         setSwimmerName(`${swimmer.firstName} ${swimmer.lastName}`)
+        setClassName(enrollment?.className ?? null)
+        setInstructorName(enrollment?.instructorName ?? null)
         setForm(questionnaire)
+        if (questionnaire.isDailyBuds && questionnaire.sessionDate && !questionnaire.alreadySigned) {
+          const previous = await fetchPreviousDailyAnswers({
+            childId,
+            classId,
+            templateId,
+            sessionDate: questionnaire.sessionDate,
+          })
+          if (!cancelled) setCanCloneYesterday(Boolean(previous?.length))
+        } else if (!cancelled) {
+          setCanCloneYesterday(false)
+        }
       } catch (err) {
         if (!cancelled) setError(formatAppError(err))
       } finally {
@@ -80,6 +110,41 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
     }
   }, [childId, classId, templateId, user?.id])
 
+  async function cloneYesterday() {
+    if (!form?.sessionDate || !classId || !templateId) return
+    setError(null)
+    try {
+      const previous = await fetchPreviousDailyAnswers({
+        childId,
+        classId,
+        templateId,
+        sessionDate: form.sessionDate,
+      })
+      if (!previous) {
+        setCanCloneYesterday(false)
+        return
+      }
+      const byText = new Map(previous.map((row) => [row.question_text.trim().toLowerCase(), row.answer]))
+      const next: Record<string, string> = {}
+      let mealId: string | null = null
+      for (const question of form.questions) {
+        if (isLastMealQuestion(question.questionText)) {
+          mealId = question.questionId
+          next[question.questionId] = ''
+          continue
+        }
+        next[question.questionId] = byText.get(question.questionText.trim().toLowerCase()) ?? ''
+      }
+      setAnswers(next)
+      setFieldErrors(mealId ? { [mealId]: 'Enter today’s meal time. Yesterday’s time is not reused.' } : {})
+      if (mealId) {
+        document.getElementById(`question-${mealId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    } catch (err) {
+      setError(formatAppError(err))
+    }
+  }
+
   function setAnswer(questionId: string, value: string) {
     setAnswers((current) => ({ ...current, [questionId]: value }))
     setFieldErrors((current) => {
@@ -90,7 +155,7 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
     })
   }
 
-  function validate(questionnaire: ParentQuestionnaire) {
+  function validateAnswers(questionnaire: ParentQuestionnaire) {
     const nextErrors: Record<string, string> = {}
     for (const question of questionnaire.questions) {
       if (!question.isRequired) continue
@@ -103,16 +168,27 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
           : 'This question has no options yet.'
       } else if (question.inputType !== 'yes_no' && question.inputType !== 'select' && !value) {
         nextErrors[question.questionId] = 'This answer is required.'
+      } else if (isLastMealQuestion(question.questionText) && !parseMealClock(value)) {
+        nextErrors[question.questionId] = 'Enter a time like 7:30 AM or 07:30.'
+      } else if (isSleepHoursQuestion(question.questionText) && parseSleepHours(value) == null) {
+        nextErrors[question.questionId] = 'Enter hours of sleep, from 0 to 24.'
       }
     }
     setFieldErrors(nextErrors)
-    const missingSignature = !signature
-    setSignatureError(missingSignature ? 'Sign in the box to agree.' : null)
     const firstId = questionnaire.questions.find((question) => nextErrors[question.questionId])?.questionId
     if (firstId) {
       document.getElementById(`question-${firstId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-    return Object.keys(nextErrors).length === 0 && !missingSignature
+    return Object.keys(nextErrors).length === 0
+  }
+
+  function validate(questionnaire: ParentQuestionnaire) {
+    const answersOk = validateAnswers(questionnaire)
+    const needsAcknowledgement = questionnaire.isDailyBuds && !acknowledged
+    setAcknowledgeError(needsAcknowledgement ? 'Confirm the pool rule before sending.' : null)
+    const missingSignature = !signature
+    setSignatureError(missingSignature ? 'Sign in the box to agree.' : null)
+    return answersOk && !missingSignature && !needsAcknowledgement
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -138,6 +214,7 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
         answers: snapshot,
         legalTextSnapshot: legalText,
         signatureDataUrl: signature ?? '',
+        sessionDate: form.sessionDate,
       })
       onFinished()
     } catch (err) {
@@ -151,10 +228,16 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
 
   return (
     <AppLayout
-      title={form?.title ?? 'Questionnaire'}
-      subtitle={swimmerName ? `For ${swimmerName}` : 'Sign the form for this swimmer'}
+      title={form?.isDailyBuds ? 'Daily BUDS' : (form?.title ?? 'Questionnaire')}
+      subtitle={
+        form?.isDailyBuds
+          ? 'Pre-class check-in'
+          : swimmerName
+            ? `For ${swimmerName}`
+            : 'Sign the form for this swimmer'
+      }
       onBack={onBack}
-      backLabel="← Back to Home"
+      backLabel={form?.isDailyBuds ? '← Back to Today' : '← Back'}
     >
       {loading ? (
         <Spinner className="pb-8" label="Loading questionnaire…" />
@@ -163,7 +246,37 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
       ) : error && !form ? (
         <p className="pb-8 text-body-md text-error">{error}</p>
       ) : form?.alreadySigned ? (
-        <p className="pb-8 text-body-md text-on-surface">This questionnaire is already signed.</p>
+        <p className="pb-8 text-body-md text-on-surface">
+          {form.isDailyBuds ? "Today's BUDS check-in is already in." : 'This questionnaire is already signed.'}
+        </p>
+      ) : form?.isDailyBuds && swimmerName ? (
+        <BudsDailyCheckIn
+          form={form}
+          swimmerName={swimmerName}
+          className={className}
+          instructorName={instructorName}
+          answers={answers}
+          fieldErrors={fieldErrors}
+          signatureError={signatureError ?? undefined}
+          acknowledged={acknowledged}
+          acknowledgeError={acknowledgeError}
+          submitting={submitting}
+          error={error}
+          signerName={user?.fullName}
+          onAnswer={setAnswer}
+          onAcknowledge={(value) => {
+            setAcknowledged(value)
+            if (value) setAcknowledgeError(null)
+          }}
+          onSignature={(dataUrl) => {
+            setSignature(dataUrl)
+            if (dataUrl) setSignatureError(null)
+          }}
+          onReview={() => (form ? validateAnswers(form) : false)}
+          onSubmit={(event) => void handleSubmit(event)}
+          canCloneYesterday={canCloneYesterday}
+          onCloneYesterday={() => void cloneYesterday()}
+        />
       ) : form ? (
         <form className="flex flex-col gap-5 pb-10" onSubmit={(event) => void handleSubmit(event)}>
           {form.description ? (
@@ -199,7 +312,16 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
                 >
                   <input
                     id={`answer-${question.questionId}`}
-                    type="text"
+                    type={
+                      isLastMealQuestion(question.questionText)
+                        ? 'time'
+                        : isSleepHoursQuestion(question.questionText)
+                          ? 'number'
+                          : 'text'
+                    }
+                    min={isSleepHoursQuestion(question.questionText) ? 0 : undefined}
+                    max={isSleepHoursQuestion(question.questionText) ? 24 : undefined}
+                    step={isSleepHoursQuestion(question.questionText) ? 0.5 : undefined}
                     value={answers[question.questionId] ?? ''}
                     aria-invalid={Boolean(fieldErrors[question.questionId])}
                     onChange={(event) => setAnswer(question.questionId, event.target.value)}
@@ -281,6 +403,7 @@ export function ParentQuestionnairePage({ childId, onBack, onFinished }: ParentQ
           ))}
 
           <SignatureCanvas
+            signerName={user?.fullName}
             error={signatureError ?? undefined}
             onChange={(dataUrl) => {
               setSignature(dataUrl)

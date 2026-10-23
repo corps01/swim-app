@@ -1,7 +1,13 @@
+import { withFitnessIntakeQuestions } from '../budsFitness'
 import { formatAppError, throwIfSupabaseError } from '../errors'
+import { groupBudsAnswers, ISR_BUDS_CATEGORY } from '../formQuestions'
 import { getSupabaseClient } from '../supabase'
+import { formatCalendarDateKey } from '../timeZone/calendar'
+import { POOL_TIMEZONE_API_FALLBACK } from '../timeZone/pool'
 import type {
   AnswerSnapshot,
+  ChildBudsEntry,
+  ClassBudsDay,
   ClassForm,
   FormInputType,
   FormSubmissionReview,
@@ -41,6 +47,8 @@ function parseQuestion(row: Record<string, unknown>): QuestionBankItem | null {
     questionText: row.question_text,
     inputType,
     options: parseQuestionOptions(row.options),
+    bankOrder: typeof row.bank_order === 'number' ? row.bank_order : null,
+    requiredByDefault: row.required_by_default !== false,
     createdAt: row.created_at,
   }
 }
@@ -49,7 +57,7 @@ export async function fetchQuestionBank(): Promise<QuestionBankItem[]> {
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('question_bank')
-    .select('id, instructor_id, category, question_text, input_type, options, created_at')
+    .select('id, instructor_id, category, question_text, input_type, options, bank_order, required_by_default, created_at')
     .order('category', { ascending: true })
     .order('question_text', { ascending: true })
 
@@ -97,7 +105,7 @@ export async function createCustomQuestion(input: {
       input_type: input.inputType,
       options: input.inputType === 'select' ? options : null,
     })
-    .select('id, instructor_id, category, question_text, input_type, options, created_at')
+    .select('id, instructor_id, category, question_text, input_type, options, bank_order, required_by_default, created_at')
     .single()
 
   throwIfSupabaseError(error)
@@ -235,6 +243,58 @@ function parseClassForms(rows: unknown[]): Map<string, ClassForm[]> {
   return formsByClass
 }
 
+export interface ChildFormHistoryItem {
+  id: string
+  title: string
+  signedAt: string
+  className: string | null
+  /** True when the row is a daily BUDS check-in rather than a seasonal waiver. */
+  daily: boolean
+}
+
+/** Signed waivers and daily check-ins for one child, newest first. */
+export async function fetchChildFormHistory(childId: string): Promise<ChildFormHistoryItem[]> {
+  const supabase = getSupabaseClient()
+  const withSession = await supabase
+    .from('form_submissions')
+    .select('id, signed_at, session_date, form_templates(title), classes(name)')
+    .eq('child_id', childId)
+    .order('signed_at', { ascending: false })
+
+  const rows = withSession.error
+    ? await supabase
+        .from('form_submissions')
+        .select('id, signed_at, form_templates(title), classes(name)')
+        .eq('child_id', childId)
+        .order('signed_at', { ascending: false })
+    : withSession
+  throwIfSupabaseError(rows.error)
+
+  return (rows.data ?? []).flatMap((row) => {
+    const record = row as Record<string, unknown>
+    if (typeof record.id !== 'string' || typeof record.signed_at !== 'string') return []
+    const template = Array.isArray(record.form_templates) ? record.form_templates[0] : record.form_templates
+    const swimClass = Array.isArray(record.classes) ? record.classes[0] : record.classes
+    const title =
+      template && typeof template === 'object' && typeof (template as { title?: unknown }).title === 'string'
+        ? (template as { title: string }).title
+        : 'Signed form'
+    const className =
+      swimClass && typeof swimClass === 'object' && typeof (swimClass as { name?: unknown }).name === 'string'
+        ? (swimClass as { name: string }).name
+        : null
+    return [
+      {
+        id: record.id,
+        title,
+        signedAt: record.signed_at,
+        className,
+        daily: typeof record.session_date === 'string' && record.session_date.length > 0,
+      },
+    ]
+  })
+}
+
 export async function fetchParentClassForms(
   pairs: Array<{ childId: string; classId: string }>,
 ): Promise<Map<string, ParentClassForm[]>> {
@@ -340,14 +400,47 @@ export async function fetchParentQuestionnaire(input: {
     ]
   })
 
-  const { data: existing, error: existingError } = await supabase
+  const questionIds = questions.map((question) => question.questionId)
+  const { data: bankRows, error: bankError } = questionIds.length
+    ? await supabase.from('question_bank').select('id, category').in('id', questionIds)
+    : { data: [], error: null }
+  throwIfSupabaseError(bankError)
+  const isDailyBuds = (bankRows ?? []).some((row) => {
+    const record = row as Record<string, unknown>
+    return record.category === ISR_BUDS_CATEGORY
+  })
+
+  const { data: classRow, error: classError } = await supabase
+    .from('classes')
+    .select('timezone')
+    .eq('id', input.classId)
+    .maybeSingle()
+  throwIfSupabaseError(classError)
+  const timeZone =
+    classRow && typeof (classRow as { timezone?: unknown }).timezone === 'string'
+      ? (classRow as { timezone: string }).timezone
+      : POOL_TIMEZONE_API_FALLBACK
+  const sessionDate = isDailyBuds ? formatCalendarDateKey(new Date(), timeZone) : null
+
+  const existingQuery = supabase
     .from('form_submissions')
     .select('id')
     .eq('child_id', input.childId)
     .eq('class_id', input.classId)
     .eq('template_id', input.templateId)
-    .maybeSingle()
+  const { data: existing, error: existingError } = sessionDate
+    ? await existingQuery.eq('session_date', sessionDate).maybeSingle()
+    : await existingQuery.maybeSingle()
 
+  if (
+    existingError &&
+    sessionDate &&
+    String((existingError as { message?: string }).message ?? '').toLowerCase().includes('session_date')
+  ) {
+    throw new Error(
+      `${formatAppError(existingError).trim().replace(/\.+$/, '')}. Run docs/sql/10-buds-fitness.sql in the Supabase SQL editor.`,
+    )
+  }
   throwIfSupabaseError(existingError)
 
   return {
@@ -355,8 +448,11 @@ export async function fetchParentQuestionnaire(input: {
     classId: input.classId,
     title: template.title,
     description: typeof template.description === 'string' ? template.description : null,
-    questions,
+    questions: isDailyBuds ? withFitnessIntakeQuestions(questions) : questions,
     alreadySigned: Boolean(existing),
+    isDailyBuds,
+    sessionDate,
+    timeZone,
   }
 }
 
@@ -368,8 +464,39 @@ export async function submitFormSignature(input: {
   answers: AnswerSnapshot[]
   legalTextSnapshot: string
   signatureDataUrl: string
+  /** Pool-local day for a daily BUDS check-in. Omit for one-time enrollment forms. */
+  sessionDate?: string | null
 }): Promise<void> {
   const supabase = getSupabaseClient()
+  const sessionDate = input.sessionDate?.trim() || null
+
+  if (sessionDate) {
+    const { data: existing, error: existingError } = await supabase
+      .from('form_submissions')
+      .select('id')
+      .eq('child_id', input.childId)
+      .eq('class_id', input.classId)
+      .eq('template_id', input.templateId)
+      .eq('session_date', sessionDate)
+      .maybeSingle()
+    throwIfSupabaseError(existingError)
+
+    if (existing && typeof (existing as { id?: unknown }).id === 'string') {
+      const { error } = await supabase
+        .from('form_submissions')
+        .update({
+          signed_by: input.signedBy,
+          answers_json: input.answers,
+          legal_text_snapshot: input.legalTextSnapshot,
+          signature_data_url: input.signatureDataUrl,
+          signed_at: new Date().toISOString(),
+        })
+        .eq('id', (existing as { id: string }).id)
+      throwIfSupabaseError(error)
+      return
+    }
+  }
+
   const { error } = await supabase.from('form_submissions').insert({
     child_id: input.childId,
     class_id: input.classId,
@@ -378,6 +505,7 @@ export async function submitFormSignature(input: {
     answers_json: input.answers,
     legal_text_snapshot: input.legalTextSnapshot,
     signature_data_url: input.signatureDataUrl,
+    ...(sessionDate ? { session_date: sessionDate } : {}),
   })
 
   if (error && (error as { code?: string }).code === '23505') {
@@ -473,6 +601,35 @@ export async function fetchSwimmerFormCompliance(
   return result
 }
 
+/** Most recent daily BUDS answers before this pool-local day. Meal time is left for the caller to drop. */
+export async function fetchPreviousDailyAnswers(input: {
+  childId: string
+  classId: string
+  templateId: string
+  sessionDate: string
+}): Promise<AnswerSnapshot[] | null> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('form_submissions')
+    .select('answers_json, session_date')
+    .eq('child_id', input.childId)
+    .eq('class_id', input.classId)
+    .eq('template_id', input.templateId)
+    .lt('session_date', input.sessionDate)
+    .order('session_date', { ascending: false })
+    .limit(1)
+
+  if (error) {
+    const message = String((error as { message?: string }).message ?? '').toLowerCase()
+    if (message.includes('session_date')) return null
+    throwIfSupabaseError(error)
+  }
+  const row = data?.[0] as { answers_json?: unknown } | undefined
+  if (!row) return null
+  const answers = parseFrozenAnswers(row.answers_json)
+  return answers.length > 0 ? answers : null
+}
+
 function parseFrozenAnswers(value: unknown): AnswerSnapshot[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
@@ -488,6 +645,107 @@ function parseFrozenAnswers(value: unknown): AnswerSnapshot[] {
       },
     ]
   })
+}
+
+/**
+ * BUDS check-ins signed on one calendar day (in the class timezone) for a class.
+ * A template counts as BUDS when it includes any ISR Daily BUDS bank question.
+ */
+export async function fetchClassBudsDay(input: {
+  classId: string
+  childIds: string[]
+  dateKey: string
+  timeZone: string
+}): Promise<ClassBudsDay> {
+  const supabase = getSupabaseClient()
+  const [bankResult, linksResult] = await Promise.all([
+    supabase.from('question_bank').select('id, question_text, bank_order').eq('category', ISR_BUDS_CATEGORY),
+    supabase
+      .from('class_forms')
+      .select('template_id, form_templates(is_active, form_template_questions(question_id))')
+      .eq('class_id', input.classId),
+  ])
+
+  throwIfSupabaseError(bankResult.error)
+  throwIfSupabaseError(linksResult.error)
+
+  const budsQuestionIds = new Set<string>()
+  const bankOrderByText = new Map<string, number>()
+  for (const row of bankResult.data ?? []) {
+    const record = row as Record<string, unknown>
+    if (typeof record.id === 'string') budsQuestionIds.add(record.id)
+    if (typeof record.question_text === 'string' && typeof record.bank_order === 'number') {
+      bankOrderByText.set(record.question_text, record.bank_order)
+    }
+  }
+
+  const templateIds = (linksResult.data ?? []).flatMap((row) => {
+    const record = row as Record<string, unknown>
+    const template = firstEmbed(record.form_templates)
+    if (typeof record.template_id !== 'string' || !template || template.is_active === false) return []
+    const links = Array.isArray(template.form_template_questions) ? template.form_template_questions : []
+    const usesBuds = links.some((link) => {
+      const questionId = (link as Record<string, unknown>).question_id
+      return typeof questionId === 'string' && budsQuestionIds.has(questionId)
+    })
+    return usesBuds ? [record.template_id] : []
+  })
+
+  const entriesByChild = new Map<string, ChildBudsEntry>()
+  const dailyByChild = new Map<string, boolean>()
+  const childIds = [...new Set(input.childIds.filter(Boolean))]
+  if (templateIds.length === 0 || childIds.length === 0) return { templateIds, entriesByChild }
+
+  const withSessionDate = await supabase
+    .from('form_submissions')
+    .select('id, child_id, template_id, signed_at, answers_json, session_date')
+    .eq('class_id', input.classId)
+    .in('template_id', templateIds)
+    .in('child_id', childIds)
+
+  const loaded =
+    withSessionDate.error &&
+    String((withSessionDate.error as { message?: string }).message ?? '').toLowerCase().includes('session_date')
+      ? await supabase
+          .from('form_submissions')
+          .select('id, child_id, template_id, signed_at, answers_json')
+          .eq('class_id', input.classId)
+          .in('template_id', templateIds)
+          .in('child_id', childIds)
+      : withSessionDate
+
+  const { data, error } = loaded
+  throwIfSupabaseError(error)
+
+  for (const row of data ?? []) {
+    const record = row as Record<string, unknown>
+    if (typeof record.id !== 'string' || typeof record.child_id !== 'string' || typeof record.signed_at !== 'string') {
+      continue
+    }
+    const signed = new Date(record.signed_at)
+    if (Number.isNaN(signed.getTime())) continue
+    const sessionDate = typeof record.session_date === 'string' ? record.session_date.slice(0, 10) : null
+    const onDay = sessionDate
+      ? sessionDate === input.dateKey
+      : formatCalendarDateKey(signed, input.timeZone) === input.dateKey
+    if (!onDay) continue
+    const existing = entriesByChild.get(record.child_id)
+    const candidateIsDaily = Boolean(sessionDate)
+    const existingIsDaily = dailyByChild.get(record.child_id) === true
+    if (existing) {
+      if (existingIsDaily && !candidateIsDaily) continue
+      if (existingIsDaily === candidateIsDaily && existing.signedAt >= record.signed_at) continue
+    }
+    dailyByChild.set(record.child_id, candidateIsDaily)
+    entriesByChild.set(record.child_id, {
+      childId: record.child_id,
+      submissionId: record.id,
+      signedAt: record.signed_at,
+      groups: groupBudsAnswers(parseFrozenAnswers(record.answers_json), bankOrderByText),
+    })
+  }
+
+  return { templateIds, entriesByChild }
 }
 
 export async function fetchFormSubmissionReview(submissionId: string): Promise<FormSubmissionReview | null> {

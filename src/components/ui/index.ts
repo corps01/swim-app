@@ -4,6 +4,7 @@ export { Card } from './Card'
 export { Field } from './Field'
 export { Input } from './Input'
 export { MaterialIcon } from './MaterialIcon'
+export { ProfileAvatar } from './ProfileAvatar'
 export { Spinner } from './Spinner'
 
 export type { BadgeProps, BadgeTone, SessionStatus } from './Badge'

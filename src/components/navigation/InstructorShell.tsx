@@ -8,13 +8,13 @@ import {
   instructorPathForTab,
 } from '../../lib/appNavigation'
 import { BrandMark } from '../layout/BrandMark'
-import { Button, MaterialIcon } from '../ui'
+import { Button, MaterialIcon, ProfileAvatar } from '../ui'
 import { DesktopTabNav, MobileTabNav, type TabNavItem } from './ResponsiveTabNav'
 
 const INSTRUCTOR_TABS: TabNavItem[] = [
-  { id: 'agenda', label: 'Today', icon: 'event_available', href: INSTRUCTOR_HOME_PATH },
-  { id: 'classes', label: 'Classes', icon: 'class', href: INSTRUCTOR_CLASSES_PATH },
-  { id: 'swimmers', label: 'Swimmers', icon: 'group', href: INSTRUCTOR_SWIMMERS_PATH },
+  { id: 'agenda', label: 'Today', icon: 'today', href: INSTRUCTOR_HOME_PATH },
+  { id: 'classes', label: 'Classes', icon: 'menu_book', href: INSTRUCTOR_CLASSES_PATH },
+  { id: 'swimmers', label: 'Swimmers', icon: 'pool', href: INSTRUCTOR_SWIMMERS_PATH },
   { id: 'account', label: 'Account', icon: 'account_circle', href: INSTRUCTOR_ACCOUNT_PATH },
 ]
 
@@ -75,26 +75,22 @@ export function InstructorShell({
               <h1 className="truncate text-headline-sm leading-tight">{mobileTitle}</h1>
             </div>
           </div>
-          {showCreateClassCta && onCreateClass ? (
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 shrink-0 rounded-full px-3 text-label-sm"
-              onClick={onCreateClass}
-            >
-              <MaterialIcon name="add" size={18} />
-              <span className="hidden sm:inline">Create Class</span>
-              <span className="sm:hidden">New</span>
-            </Button>
-          ) : (
-            <span
-              className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-[11px] font-bold text-primary md:flex"
-              title={instructorName}
-              aria-hidden
-            >
-              {instructorName.slice(0, 2).toUpperCase()}
-            </span>
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {showCreateClassCta && onCreateClass ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 shrink-0 rounded-full px-3 text-label-sm"
+                onClick={onCreateClass}
+              >
+                <MaterialIcon name="add" size={18} />
+                <span className="hidden sm:inline">Create Class</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            ) : (
+              <ProfileAvatar name={instructorName} size="sm" className="hidden md:inline-flex" />
+            )}
+          </div>
         </div>
       </header>
 

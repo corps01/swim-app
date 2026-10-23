@@ -27,6 +27,14 @@ export function getAttendanceMark(
   return readStore(classId, dateKey)[childId] ?? 'unmarked'
 }
 
+export function replaceAttendanceMap(
+  classId: string,
+  dateKey: string,
+  marks: Record<string, AttendanceMark>,
+): void {
+  localStorage.setItem(attendanceStorageKey(classId, dateKey), JSON.stringify(marks))
+}
+
 export function setAttendanceMark(
   classId: string,
   dateKey: string,

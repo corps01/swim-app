@@ -21,6 +21,8 @@ interface ClassContextBannerProps {
   driftWaves?: boolean
   /** Offsets the wave loop when several cards are on screen. */
   wavePhase?: number
+  /** Short title strip for list cards. */
+  compact?: boolean
 }
 
 export function ClassContextBanner({
@@ -33,6 +35,7 @@ export function ClassContextBanner({
   className,
   driftWaves = false,
   wavePhase = 0,
+  compact = false,
 }: ClassContextBannerProps) {
   const style = CLASS_ACCENT_STYLES[accent]
 
@@ -40,7 +43,7 @@ export function ClassContextBanner({
     <div
       className={`overflow-hidden rounded-2xl shadow-[0_4px_20px_-2px_rgba(15,23,42,0.12)] ${className ?? ''}`}
     >
-      <div className="relative overflow-hidden p-4 text-white" style={{ background: style.gradient }}>
+      <div className={`relative overflow-hidden text-white ${compact ? 'px-3.5 py-2.5' : 'p-4'}`} style={{ background: style.gradient }}>
         <DriftWaves
           align="end"
           colors={driftWaves ? undefined : style.waveLayers}
@@ -57,7 +60,7 @@ export function ClassContextBanner({
                 {pill}
               </div>
             ) : null}
-            <h3 className="text-headline-md font-extrabold leading-tight">{title}</h3>
+            <h3 className={compact ? 'truncate text-headline-sm font-extrabold leading-tight' : 'text-headline-md font-extrabold leading-tight'}>{title}</h3>
             {subtitle ? <p className="mt-0.5 text-body-sm text-white/85">{subtitle}</p> : null}
           </div>
           {aside ? <div className="shrink-0">{aside}</div> : null}

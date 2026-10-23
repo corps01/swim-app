@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { NativeNotificationEngine } from './components/notifications/NativeNotificationEngine'
 import { AuthProvider } from './contexts/AuthContext'
 
 function markFontsReady() {
@@ -20,6 +21,7 @@ if (typeof document !== 'undefined') {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
+      <NativeNotificationEngine />
       <App />
     </AuthProvider>
   </StrictMode>,

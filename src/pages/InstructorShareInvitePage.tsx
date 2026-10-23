@@ -6,27 +6,25 @@ import { useAuth } from '../hooks/useAuth'
 import { useInstructorSwimmers } from '../hooks/useInstructorSwimmers'
 import { fetchInstructorClass } from '../lib/api/classes'
 import { formatAppError } from '../lib/errors'
+import { instructorShareClassPath, instructorSwimmerPath } from '../lib/appNavigation'
 import { formatClassCodeDisplay, inviteLinkForClass } from '../lib/instructorInvite'
 import type { SwimClass } from '../types/class'
-import { Badge, Button, Card, MaterialIcon } from '../components/ui'
+import { Badge, Button, Card, MaterialIcon, ProfileAvatar } from '../components/ui'
 
 interface InstructorShareInvitePageProps {
   classId: string
   onBack: () => void
-}
-
-function parentInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length < 2) return name.slice(0, 2).toUpperCase()
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+  onNavigate?: (path: string) => void
 }
 
 function InstructorShareInviteContent({
   swimClass,
   onBack,
+  onNavigate,
 }: {
   swimClass: SwimClass
   onBack: () => void
+  onNavigate?: (path: string) => void
 }) {
   const { user } = useAuth()
   const { swimmers, loading, error, refresh } = useInstructorSwimmers(swimClass.id)
@@ -239,20 +237,25 @@ function InstructorShareInviteContent({
                   key={row.childId}
                   className="flex items-center justify-between gap-3 p-3.5 transition-colors hover:bg-surface-container-low/80"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div
-                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary-container text-[11px] font-bold text-on-secondary-container"
-                      aria-hidden
-                    >
-                      {parentInitials(row.parentName)}
-                    </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onNavigate?.(
+                        instructorSwimmerPath(row.childId, {
+                          from: instructorShareClassPath(swimClass.id),
+                        }),
+                      )
+                    }
+                    className="flex min-w-0 items-center gap-3 text-left"
+                  >
+                    <ProfileAvatar name={row.parentName} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate text-label-md font-bold text-on-surface">{row.parentName}</p>
                       <p className="truncate text-[11px] text-on-surface-variant">
                         {row.firstName}&apos;s parent · Joined via class code
                       </p>
                     </div>
-                  </div>
+                  </button>
                   <Badge status="completed" size="sm" className="shrink-0 gap-1 font-semibold">
                     <span className="size-1.5 rounded-full bg-secondary" aria-hidden />
                     Verified
@@ -322,7 +325,7 @@ function InstructorShareInviteContent({
   )
 }
 
-export function InstructorShareInvitePage({ classId, onBack }: InstructorShareInvitePageProps) {
+export function InstructorShareInvitePage({ classId, onBack, onNavigate }: InstructorShareInvitePageProps) {
   const { user } = useAuth()
   const [swimClass, setSwimClass] = useState<SwimClass | null>(null)
   const [loading, setLoading] = useState(true)
@@ -371,5 +374,5 @@ export function InstructorShareInvitePage({ classId, onBack }: InstructorShareIn
     )
   }
 
-  return <InstructorShareInviteContent swimClass={swimClass} onBack={onBack} />
+  return <InstructorShareInviteContent swimClass={swimClass} onBack={onBack} onNavigate={onNavigate} />
 }

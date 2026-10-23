@@ -15,7 +15,12 @@ import {
   sessionCardKey,
   timingBadgeForSession,
 } from '../../lib/agendaSessionTiming'
-import { INSTRUCTOR_CLASSES_PATH, INSTRUCTOR_HOME_PATH, instructorSessionPath } from '../../lib/appNavigation'
+import {
+  INSTRUCTOR_CLASSES_PATH,
+  INSTRUCTOR_HOME_PATH,
+  instructorClassDetailPath,
+  instructorSessionPath,
+} from '../../lib/appNavigation'
 import { formatAppError } from '../../lib/errors'
 import { groupAgendaSessions, type AgendaShiftId } from '../../lib/instructorAgendaLayout'
 import {
@@ -269,7 +274,10 @@ export function InstructorAgendaPage({ onNavigate, onNewClass }: InstructorAgend
                         session={session}
                         timingBadge={timingBadgeForSession(session, nextSessionKey, isToday)}
                         emphasize={nextSessionKey === key}
-                        onOpen={() =>
+                        onOpenDetails={() =>
+                          onNavigate(instructorClassDetailPath(session.classId, { date: selectedDate }))
+                        }
+                        onOpenDeck={() =>
                           onNavigate(instructorSessionPath(session.classId, selectedDate))
                         }
                       />
