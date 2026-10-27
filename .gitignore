@@ -13,6 +13,9 @@ dist-ssr
 *.local
 .env
 
+# Firebase config (contains API key)
+android/app/google-services.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
